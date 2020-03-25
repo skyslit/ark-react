@@ -39,6 +39,9 @@ export class ArkPackage<ModuleType> {
             return this.store;
         }
 
+        
+        
+
         // Aggregate reducers from all modules
         const reducerMap: any = {};
         Object.keys(this.modules).forEach((id) => {

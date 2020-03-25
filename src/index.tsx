@@ -1,4 +1,3 @@
-import React from 'react';
 export { ArkModule } from './module';
 export { ArkPackage } from './package';
 
