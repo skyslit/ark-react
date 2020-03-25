@@ -4,16 +4,15 @@ type PatialArkModule = {
 }
 
 export class ArkModule<ViewMapType = any, ComponentMapType = any, ControllerType = any, ServiceType = any> {
-    name: string
+    type: string
 
     views: ViewMapType
     components: ComponentMapType
     controller: ControllerType
     services: ServiceType
-    defaultRoutes: { path: string, id: string }[]
 
-    constructor (name: string, opts?: PatialArkModule) {
-        this.name = name;
+    constructor (type: string, opts?: PatialArkModule) {
+        this.type = type;
 
         this.views = {} as any;
         this.components = {} as any;
@@ -41,5 +40,9 @@ export class ArkModule<ViewMapType = any, ComponentMapType = any, ControllerType
 
     attachServices(services: ServiceType) {
         this.services = services;
+    }
+
+    getReducer(): any {
+        return null;
     }
 }

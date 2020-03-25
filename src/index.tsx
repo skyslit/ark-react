@@ -13,7 +13,8 @@ class SingletonMemory {
 
     static getInstance<ModuleType>(): ArkPackage<ModuleType> {
         if (!SingletonMemory.instance) {
-            return new ArkPackage<ModuleType>();
+            SingletonMemory.instance = new ArkPackage<ModuleType>();
+            return SingletonMemory.instance as ArkPackage<ModuleType>;
         }
 
         return SingletonMemory.instance as ArkPackage<ModuleType>;
