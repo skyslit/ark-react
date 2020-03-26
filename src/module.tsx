@@ -1,19 +1,18 @@
-import { IArkModule, ComponentMap } from "./types"
+import { IArkModule, ComponentMap, ActionTypes } from "./types"
 import { ArkPackage } from "./package"
 import { Action, Reducer } from "redux";
 import { Connect } from "react-redux";
 
-export class ArkModule<StateType = any, ActionType extends Action = any, ServiceType = any> implements IArkModule<StateType, ActionType, ServiceType> {
+export class ArkModule<StateType = any, ServiceType = any> implements IArkModule<StateType, ServiceType> {
     type: string = null;
     id: string = null;
 
     package: ArkPackage = null;
     views: ComponentMap = {};
     components: ComponentMap = {};
-    actions: ActionType;
     services: ServiceType;
     state: StateType = {} as any;
-    actionType: ActionType = {} as any;
+    actionTypes: ActionTypes = {} as any;
 
     constructor (type: string, opts?: Partial<ArkModule>) {
         this.type = type;
@@ -38,14 +37,15 @@ export class ArkModule<StateType = any, ActionType extends Action = any, Service
     }
 
     attachRedux(connect: Connect, mapStateToProps: (state: StateType) => Object) {
+
         return (component: React.ComponentClass | React.FunctionComponent) => {
             return connect((state) => mapStateToProps((state as any)[this.id]))(component);
         }
     }
 
     normalizeActionTypes() {
-        Object.keys(this.actionType).forEach(key => {
-            (this.actionType as any)[key] = `${this.id}-${(this.actionType as any)[key]}`
+        Object.keys(this.actionTypes).forEach(key => {
+            (this.actionTypes as any)[key] = `${this.id}-${(this.actionTypes as any)[key]}`
         })
     }
 }

@@ -6,21 +6,20 @@ export type ComponentMap = {
     [key: string]: React.FunctionComponent | React.ComponentClass
 }
 
-export type ActionType = {
+export type ActionTypes = {
     [k: string]: string
 }
 
-export interface IArkModule<StateType = any, ActionType extends Action = any, ServiceType = any> {
+export interface IArkModule<StateType = any, ServiceType = any> {
     type: string
     id: string
 
     package: ArkPackage
     views: ComponentMap
     components: ComponentMap
-    actions: ActionType
     services: ServiceType
     state: StateType
-    actionType: ActionType
+    actionTypes: ActionTypes
     
     getReducer: () => Reducer
     getState: () => StateType
