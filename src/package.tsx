@@ -10,15 +10,18 @@ export type PackageStateType<ModuleType> = {
 }
 
 export type ConfigEnvironment<T> = {
-    default: T,
+    default: T
+    development?: T
+    staging?: T
+    production?: T
     [k: string]: Partial<T>
 }
 
 export type BaseConfigType = {
-    baseUrl: string
+    baseUrl?: string
 }
 
-export class ArkPackage<ModuleType = any, ConfigType extends BaseConfigType = any> implements IArkPackage<ModuleType> {
+export class ArkPackage<ModuleType = any, ConfigType extends BaseConfigType = BaseConfigType> implements IArkPackage<ModuleType> {
     static instance: ArkPackage;
     static createInstance<ModuleType>(): ArkPackage<ModuleType> {
         return ArkPackage.getInstance();
