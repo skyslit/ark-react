@@ -3,21 +3,21 @@ import { Reducer, Store, Action } from 'redux';
 import { ArkPackage } from "./package";
 
 export type ComponentMap = {
-    [key: string]: React.FunctionComponent | React.ComponentClass
+    [key: string]: React.FunctionComponent<any> | React.ComponentClass<any>
 }
 
 export type ActionTypes = {
     [k: string]: string
 }
 
-export interface IArkModule<StateType = any, ServiceType = any> {
+export interface IArkModule<StateType = any, ControllerType = any> {
     type: string
     id: string
 
     package: ArkPackage
     views: ComponentMap
     components: ComponentMap
-    services: ServiceType
+    controller: ControllerType
     state: StateType
     actionTypes: ActionTypes
     

@@ -1,16 +1,17 @@
+import React from 'react';
 import { IArkModule, ComponentMap, ActionTypes } from "./types"
 import { ArkPackage } from "./package"
 import { Action, Reducer } from "redux";
 import { Connect } from "react-redux";
 
-export class ArkModule<StateType = any, ServiceType = any> implements IArkModule<StateType, ServiceType> {
+export class ArkModule<StateType = any, ControllerType = any> implements IArkModule<StateType, ControllerType> {
     type: string = null;
     id: string = null;
 
     package: ArkPackage = null;
     views: ComponentMap = {};
     components: ComponentMap = {};
-    services: ServiceType;
+    controller: ControllerType;
     state: StateType = {} as any;
     actionTypes: ActionTypes = {} as any;
 
@@ -37,15 +38,26 @@ export class ArkModule<StateType = any, ServiceType = any> implements IArkModule
     }
 
     attachRedux(connect: Connect, mapStateToProps: (state: StateType) => Object) {
-
         return (component: React.ComponentClass | React.FunctionComponent) => {
             return connect((state) => mapStateToProps((state as any)[this.id]))(component);
+        }
+    }
+
+    attachContextToComponent(masterProps: { module: ArkModule }) {
+        return (Component: React.ComponentClass | React.FunctionComponent) => {
+            return (props: any) => <Component {...props} {...masterProps} />
         }
     }
 
     normalizeActionTypes() {
         Object.keys(this.actionTypes).forEach(key => {
             (this.actionTypes as any)[key] = `${this.id}-${(this.actionTypes as any)[key]}`
+        })
+    }
+
+    attachContextToComponents(componentMap: ComponentMap) {
+        Object.keys(componentMap).forEach(key => {
+            (componentMap as any)[key] = this.attachContextToComponent({ module: this })(componentMap[key]);
         })
     }
 }

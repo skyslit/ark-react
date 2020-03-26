@@ -22,6 +22,8 @@ export class ArkPackage<ModuleType = any> implements IArkPackage<ModuleType> {
         _module.id = id;
         _module.package = this;
         _module.normalizeActionTypes();
+        _module.attachContextToComponents(_module.components);
+        _module.attachContextToComponents(_module.views);
 
         // @ts-ignore
         this.modules[id] = _module;
