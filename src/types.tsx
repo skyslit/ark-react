@@ -15,7 +15,27 @@ export interface IArkModule<StateType = any, ActionType extends Action = any, Se
     components: ComponentMap
     actions: ActionType
     services: ServiceType
+    state: StateType
 
     getReducer: () => Reducer
-    getStore: () => Store<StateType, ActionType>
+    getState: () => StateType
+}
+
+
+export type ArkPackageOption<ModuleType = any, PackageStateType = any> = Readonly<IArkPackage<ModuleType, PackageStateType>>
+
+export type PackageRouteConfig = {
+    path: string
+    component: React.FunctionComponent | React.ComponentClass
+}
+
+export interface IArkPackage<ModuleType = any, PackageStateType = any> {
+    modules: ModuleType
+    routeConfig: PackageRouteConfig[]
+    store: Store<PackageStateType>
+
+    Router: React.FunctionComponent
+
+    setupStore: (enableReduxDevTool?: boolean) => Store<PackageStateType>
+    initialize: (done: (err: Error, options: ArkPackageOption<ModuleType, PackageStateType>) => void) => void
 }

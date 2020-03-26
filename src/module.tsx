@@ -1,6 +1,6 @@
 import { IArkModule, ComponentMap } from "./types"
 import { ArkPackage } from "./package"
-import { Action, Store, Reducer } from "redux";
+import { Action, Reducer } from "redux";
 
 export class ArkModule<StateType = any, ActionType extends Action = any, ServiceType = any> implements IArkModule<StateType, ActionType, ServiceType> {
     type: string = null;
@@ -11,6 +11,7 @@ export class ArkModule<StateType = any, ActionType extends Action = any, Service
     components: ComponentMap = {};
     actions: ActionType;
     services: ServiceType;
+    state: StateType = {} as any;
 
     constructor (type: string, opts?: Partial<ArkModule>) {
         this.type = type;
@@ -20,11 +21,11 @@ export class ArkModule<StateType = any, ActionType extends Action = any, Service
         }
     }
     
-    getReducer(): Reducer {
+    getReducer(): Reducer<StateType> {
         return null;
     }
 
-    getStore(): Store<StateType, ActionType> {
+    getState(): StateType {
         return null;
     }
 }

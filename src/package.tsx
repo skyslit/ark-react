@@ -1,47 +1,21 @@
 import React from 'react';
 import { createStore, compose, applyMiddleware, combineReducers, Store } from "redux";
-import { RouteProps, Switch, Route, BrowserRouter as Router } from 'react-router-dom';
+import { Switch, Route, BrowserRouter as Router } from 'react-router-dom';
 import { ArkModule } from './module';
+import { IArkPackage, PackageRouteConfig, ArkPackageOption } from './types';
 
-type BaseModuleType = {
-    state: Object
-}
-
-type PackageType = {
-    [key: string]: BaseModuleType
-}
-
-type StateType<ModuleType extends PackageType> = {
+export type PackageStateType<ModuleType> = {
     // @ts-ignore
-    [T in keyof ModuleType]: ModuleType[T]
+    [k in keyof ModuleType]: ModuleType[k]["state"]
 }
 
-const a: StateType<{
-    Hello: {
-        state: {
-            name: string
-            age: number
-        }
-    }
-}> = null;
+export class ArkPackage<ModuleType = any> implements IArkPackage<ModuleType> {
+    
+    modules: ModuleType = {} as any
+    routeConfig: PackageRouteConfig[] = [];
+    store: Store<PackageStateType<ModuleType>> = null;
 
-
-
-
-export class ArkPackage<ModuleType = any> {
-
-    // Member properties
-    modules: ModuleType
-    RouterElement: React.FunctionComponent
-    routes: RouteProps[]
-    store: any
-
-    constructor() {
-        this.modules = {} as any;
-        this.RouterElement = null;
-        this.routes = [];
-        this.store = null;
-    }
+    Router: React.FunctionComponent
 
     registerModule(id: string, _module: ArkModule) {
         // Register views
@@ -61,7 +35,7 @@ export class ArkPackage<ModuleType = any> {
         return null;
     }
 
-    getStore<S = any>(enableReduxDevTool: boolean = false): Store<S> {
+    setupStore(enableReduxDevTool: boolean = false): Store<PackageStateType<ModuleType>> {
         if (this.store) {
             return this.store;
         }
@@ -89,17 +63,16 @@ export class ArkPackage<ModuleType = any> {
             composeScript = compose(applyMiddleware(...middlewares));
         }
 
-        this.store = createStore(combineReducers(reducerMap), composeScript);
+        this.store = createStore<PackageStateType<ModuleType>, any, any, any>(combineReducers<PackageStateType<ModuleType>>(reducerMap), composeScript);
         return this.store;
     }
 
-    initialize(cb: (err: Error, Routes: React.FunctionComponent, options?: PackageOptions) => void) {
-        // Do awesome work
-        this.RouterElement = (props) => (
+    initialize(done: (err: Error, options: ArkPackageOption<ModuleType, PackageStateType<ModuleType>>) => void) {
+        this.Router = (props) => (
             <Router>
                 <Switch>
                     {
-                        this.routes.map((route: any, index: number) => {
+                        this.routeConfig.map((route: PackageRouteConfig, index: number) => {
                             return <Route key={index} {...route} />
                         })
                     }
@@ -107,12 +80,6 @@ export class ArkPackage<ModuleType = any> {
             </Router>
         )
 
-        cb(null, this.RouterElement, {
-            getStore: (enableReduxDevTool: boolean = false) => this.getStore(enableReduxDevTool)
-        });
+        done(null, this as any);
     }
-}
-
-export type PackageOptions = {
-    getStore: (enableReduxDevTool?: boolean) => Store
 }
