@@ -6,6 +6,10 @@ export type ComponentMap = {
     [key: string]: React.FunctionComponent | React.ComponentClass
 }
 
+export type ActionType = {
+    [k: string]: string
+}
+
 export interface IArkModule<StateType = any, ActionType extends Action = any, ServiceType = any> {
     type: string
     id: string
@@ -16,7 +20,8 @@ export interface IArkModule<StateType = any, ActionType extends Action = any, Se
     actions: ActionType
     services: ServiceType
     state: StateType
-
+    actionType: ActionType
+    
     getReducer: () => Reducer
     getState: () => StateType
 }

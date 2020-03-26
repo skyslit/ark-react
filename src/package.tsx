@@ -21,6 +21,8 @@ export class ArkPackage<ModuleType = any> implements IArkPackage<ModuleType> {
         // Register views
         _module.id = id;
         _module.package = this;
+        _module.normalizeActionTypes();
+
         // @ts-ignore
         this.modules[id] = _module;
     }
