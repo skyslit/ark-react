@@ -1,6 +1,6 @@
 {
   "name": "@skyslit/ark-react",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "A React Framework for building modular business application",
   "main": "./build/index.js",
   "scripts": {

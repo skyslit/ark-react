@@ -1,48 +1,30 @@
+import { IArkModule, ComponentMap } from "./types"
+import { ArkPackage } from "./package"
+import { Action, Store, Reducer } from "redux";
 
-type PatialArkModule = {
-    [T in keyof ArkModule]?: string
-}
+export class ArkModule<StateType = any, ActionType extends Action = any, ServiceType = any> implements IArkModule<StateType, ActionType, ServiceType> {
+    type: string = null;
+    id: string = null;
 
-export class ArkModule<ViewMapType = any, ComponentMapType = any, ControllerType = any, ServiceType = any> {
-    type: string
+    package: ArkPackage = null;
+    views: ComponentMap = {};
+    components: ComponentMap = {};
+    actions: ActionType;
+    services: ServiceType;
 
-    views: ViewMapType
-    components: ComponentMapType
-    controller: ControllerType
-    services: ServiceType
-
-    constructor (type: string, opts?: PatialArkModule) {
+    constructor (type: string, opts?: Partial<ArkModule>) {
         this.type = type;
-
-        this.views = {} as any;
-        this.components = {} as any;
-        this.controller = {} as any;
-        this.services = {} as any;
 
         if (opts) {
             Object.keys(opts).forEach(k => (this as any)[k] = (opts as any)[k]);
         }
     }
-
-    registerViews(k: string, v: any) {
-        if (!this.views) throw new Error('View is undefined');
-        (this.views as any)[k] = v;
+    
+    getReducer(): Reducer {
+        return null;
     }
 
-    registerComponents(k: string, v: any) {
-        if (!this.components) throw new Error('View is undefined');
-        (this.components as any)[k] = v;
-    }
-
-    attachController(controller: ControllerType) {
-        this.controller = controller;
-    }
-
-    attachServices(services: ServiceType) {
-        this.services = services;
-    }
-
-    getReducer(): any {
+    getStore(): Store<StateType, ActionType> {
         return null;
     }
 }

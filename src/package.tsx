@@ -1,9 +1,34 @@
 import React from 'react';
-import { createStore, compose, applyMiddleware, combineReducers } from "redux";
+import { createStore, compose, applyMiddleware, combineReducers, Store } from "redux";
 import { RouteProps, Switch, Route, BrowserRouter as Router } from 'react-router-dom';
 import { ArkModule } from './module';
 
-export class ArkPackage<ModuleType> {
+type BaseModuleType = {
+    state: Object
+}
+
+type PackageType = {
+    [key: string]: BaseModuleType
+}
+
+type StateType<ModuleType extends PackageType> = {
+    // @ts-ignore
+    [T in keyof ModuleType]: ModuleType[T]
+}
+
+const a: StateType<{
+    Hello: {
+        state: {
+            name: string
+            age: number
+        }
+    }
+}> = null;
+
+
+
+
+export class ArkPackage<ModuleType = any> {
 
     // Member properties
     modules: ModuleType
@@ -20,6 +45,8 @@ export class ArkPackage<ModuleType> {
 
     registerModule(id: string, _module: ArkModule) {
         // Register views
+        _module.id = id;
+        _module.package = this;
         // @ts-ignore
         this.modules[id] = _module;
     }
@@ -34,13 +61,10 @@ export class ArkPackage<ModuleType> {
         return null;
     }
 
-    getStore(enableReduxDevTool: boolean = false): any {
+    getStore<S = any>(enableReduxDevTool: boolean = false): Store<S> {
         if (this.store) {
             return this.store;
         }
-
-        
-        
 
         // Aggregate reducers from all modules
         const reducerMap: any = {};
@@ -90,5 +114,5 @@ export class ArkPackage<ModuleType> {
 }
 
 export type PackageOptions = {
-    getStore: (enableReduxDevTool?: boolean) => any
+    getStore: (enableReduxDevTool?: boolean) => Store
 }
