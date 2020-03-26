@@ -10,7 +10,20 @@ export type PackageStateType<ModuleType> = {
 }
 
 export class ArkPackage<ModuleType = any> implements IArkPackage<ModuleType> {
-    
+    static instance: ArkPackage;
+    static createInstance<ModuleType>(): ArkPackage<ModuleType> {
+        return ArkPackage.getInstance();
+    }
+    static getInstance<ModuleType>(): ArkPackage<ModuleType> {
+        if (!ArkPackage.instance) {
+            ArkPackage.instance = new ArkPackage<ModuleType>();
+            return ArkPackage.instance as ArkPackage<ModuleType>;
+        }
+
+        return ArkPackage.instance as ArkPackage<ModuleType>;
+    }
+
+
     modules: ModuleType = {} as any
     routeConfig: PackageRouteConfig[] = [];
     store: Store<PackageStateType<ModuleType>> = null;
