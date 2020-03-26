@@ -9,7 +9,16 @@ export type PackageStateType<ModuleType> = {
     [k in keyof ModuleType]: ModuleType[k]["state"]
 }
 
-export class ArkPackage<ModuleType = any> implements IArkPackage<ModuleType> {
+export type ConfigEnvironment<T> = {
+    default: T,
+    [k: string]: Partial<T>
+}
+
+export type BaseConfigType = {
+    baseUrl: string
+}
+
+export class ArkPackage<ModuleType = any, ConfigType extends BaseConfigType = any> implements IArkPackage<ModuleType> {
     static instance: ArkPackage;
     static createInstance<ModuleType>(): ArkPackage<ModuleType> {
         return ArkPackage.getInstance();
@@ -23,10 +32,11 @@ export class ArkPackage<ModuleType = any> implements IArkPackage<ModuleType> {
         return ArkPackage.instance as ArkPackage<ModuleType>;
     }
 
-
     modules: ModuleType = {} as any
     routeConfig: PackageRouteConfig[] = [];
     store: Store<PackageStateType<ModuleType>> = null;
+    configOpts: ConfigEnvironment<ConfigType> = { 'default': {} as any };
+    configMode: string = 'default';
 
     Router: React.FunctionComponent
 
@@ -50,6 +60,14 @@ export class ArkPackage<ModuleType = any> implements IArkPackage<ModuleType> {
         })
 
         return null;
+    }
+
+    getConfig(): Readonly<ConfigType> {
+        if (this.configOpts[this.configMode]) {
+            return this.configOpts[this.configMode] as any;
+        } else {
+            return this.configOpts['default'];
+        }
     }
 
     setupStore(enableReduxDevTool: boolean = false): Store<PackageStateType<ModuleType>> {
