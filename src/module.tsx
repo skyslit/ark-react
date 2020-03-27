@@ -1,8 +1,7 @@
 import React from 'react';
 import { IArkModule, ComponentMap, ActionTypes } from "./types"
 import { ArkPackage } from "./package"
-import { Action, Reducer } from "redux";
-import { Connect } from "react-redux";
+import { Reducer } from "redux";
 
 export class ArkModule<StateType = any, ControllerType = any> implements IArkModule<StateType, ControllerType> {
     type: string = null;
@@ -37,9 +36,9 @@ export class ArkModule<StateType = any, ControllerType = any> implements IArkMod
         return this.package.store.getState()[this.id];
     }
 
-    attachRedux(connect: Connect, mapStateToProps: (state: StateType) => Object) {
+    attachRedux(connect: any, mapStateToProps: (state: StateType) => Object) {
         return (component: React.ComponentClass | React.FunctionComponent) => {
-            return connect((state) => mapStateToProps((state as any)[this.id]))(component);
+            return connect((state: any) => mapStateToProps((state as any)[this.id]))(component);
         }
     }
 

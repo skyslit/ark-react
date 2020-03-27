@@ -41,5 +41,5 @@ export interface IArkPackage<ModuleType = any, PackageStateType = any> {
     Router: React.FunctionComponent
 
     setupStore: (enableReduxDevTool?: boolean) => Store<PackageStateType>
-    initialize: (done: (err: Error, options: ArkPackageOption<ModuleType, PackageStateType>) => void) => void
+    initialize: (mode: 'Browser' | 'Server', done: (err: Error, options: ArkPackageOption<ModuleType, PackageStateType>) => void) => void
 }

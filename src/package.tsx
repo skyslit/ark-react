@@ -1,6 +1,6 @@
 import React from 'react';
 import { createStore, compose, applyMiddleware, combineReducers, Store } from "redux";
-import { Switch, Route, BrowserRouter as Router } from 'react-router-dom';
+import { Switch, Route, BrowserRouter, StaticRouter } from 'react-router-dom';
 import { ArkModule } from './module';
 import { IArkPackage, PackageRouteConfig, ArkPackageOption } from './types';
 
@@ -41,7 +41,7 @@ export class ArkPackage<ModuleType = any, ConfigType extends BaseConfigType = Ba
     configOpts: ConfigEnvironment<ConfigType> = { 'default': {} as any };
     configMode: string = 'default';
 
-    Router: React.FunctionComponent
+    Router: React.FunctionComponent<{ location?: string }>
 
     registerModule(id: string, _module: ArkModule) {
         // Register views
@@ -91,11 +91,13 @@ export class ArkPackage<ModuleType = any, ConfigType extends BaseConfigType = Ba
         let middlewares: any[] = [];
         if (enableReduxDevTool) {
             composeScript = compose(applyMiddleware(...middlewares));
-            if ((window as any).__REDUX_DEVTOOLS_EXTENSION__) {
-                composeScript = compose(
-                    applyMiddleware(...middlewares),
-                    (window as any).__REDUX_DEVTOOLS_EXTENSION__()
-                );
+            if (typeof window !== 'undefined') {
+                if ((window as any).__REDUX_DEVTOOLS_EXTENSION__) {
+                    composeScript = compose(
+                        applyMiddleware(...middlewares),
+                        (window as any).__REDUX_DEVTOOLS_EXTENSION__()
+                    );
+                }
             }
         } else {
             composeScript = compose(applyMiddleware(...middlewares));
@@ -105,9 +107,10 @@ export class ArkPackage<ModuleType = any, ConfigType extends BaseConfigType = Ba
         return this.store;
     }
 
-    initialize(done: (err: Error, options: ArkPackageOption<ModuleType, PackageStateType<ModuleType>>) => void) {
+    initialize(mode: 'Browser' | 'Server', done: (err: Error, options: ArkPackageOption<ModuleType, PackageStateType<ModuleType>>) => void) {
+        const Router: any = mode === 'Browser' ? BrowserRouter : StaticRouter
         this.Router = (props) => (
-            <Router>
+            <Router location={props.location}>
                 <Switch>
                     {
                         this.routeConfig.map((route: PackageRouteConfig, index: number) => {
