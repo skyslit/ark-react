@@ -32,10 +32,6 @@ export type ServiceProviderConfiguration<Providers> = {
     [k in Providers]: AxiosRequestConfig
 }
 
-export type ServiceProviderMap<ModuleType> = {
-
-}
-
 export class ArkPackage<ModuleType = any, ConfigType extends BaseConfigType = BaseConfigType, ServiceProviderType = ServiceProviderBase> implements IArkPackage<ModuleType> {
     static instance: any;
     static getInstance<ModuleType = any, ConfigType extends BaseConfigType = BaseConfigType, ServiceProviderType = ServiceProviderBase>(): ArkPackage<ModuleType, ConfigType, ServiceProviderType> {
