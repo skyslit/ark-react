@@ -1,23 +1,24 @@
 import React from 'react';
-import { Reducer, Store, Action } from 'redux';
+import { Reducer, Store } from 'redux';
+import { RouteComponentProps } from 'react-router-dom';
 import { ArkPackage } from "./package";
 
 export type ComponentMap = {
-    [key: string]: React.FunctionComponent<any> | React.ComponentClass<any>
+    [key: string]: React.ComponentType<any>
 }
 
 export type ActionTypes = {
     [k: string]: string
 }
 
-export interface IArkModule<StateType = any, ControllerType = any> {
+export interface IArkModule<StateType = any> {
     type: string
     id: string
 
     package: ArkPackage
     views: ComponentMap
     components: ComponentMap
-    controller: ControllerType
+    controller: any
     state: StateType
     actionTypes: ActionTypes
     
@@ -30,7 +31,7 @@ export type ArkPackageOption<ModuleType = any, PackageStateType = any> = Readonl
 
 export type PackageRouteConfig = {
     path: string
-    component: React.FunctionComponent | React.ComponentClass
+    component: React.ComponentType<any>
 }
 
 export interface IArkPackage<ModuleType = any, PackageStateType = any> {
@@ -43,3 +44,12 @@ export interface IArkPackage<ModuleType = any, PackageStateType = any> {
     setupStore: (enableReduxDevTool?: boolean) => Store<PackageStateType>
     initialize: (mode: 'Browser' | 'Server', done: (err: Error, options: ArkPackageOption<ModuleType, PackageStateType>) => void) => void
 }
+
+export type ComponentPropType<ModuleType extends IArkModule> = {
+    module: ModuleType
+    context: {
+        [k in keyof ModuleType["state"]]: ModuleType["state"][k]
+    }
+}
+
+export type ViewComponentPropType<ModuleType extends IArkModule> = RouteComponentProps & ComponentPropType<ModuleType>

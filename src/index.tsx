@@ -1,2 +1,3 @@
 export { ArkModule } from './module';
-export { ArkPackage } from './package';
+export { ArkPackage, BaseConfigType } from './package';
+export { ComponentPropType, ViewComponentPropType } from './types';

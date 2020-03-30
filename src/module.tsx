@@ -3,23 +3,28 @@ import { IArkModule, ComponentMap, ActionTypes } from "./types"
 import { ArkPackage } from "./package"
 import { Reducer } from "redux";
 
-export class ArkModule<StateType = any, ControllerType = any> implements IArkModule<StateType, ControllerType> {
+export class ArkModule<StateType = any> implements IArkModule<StateType> {
     type: string = null;
     id: string = null;
 
     package: ArkPackage = null;
     views: ComponentMap = {};
     components: ComponentMap = {};
-    controller: ControllerType;
+    controller: any;
     state: StateType = {} as any;
     actionTypes: ActionTypes = {} as any;
 
+    private connect: any;
+
     constructor (type: string, opts?: Partial<ArkModule>) {
         this.type = type;
-
         if (opts) {
             Object.keys(opts).forEach(k => (this as any)[k] = (opts as any)[k]);
         }
+    }
+
+    useConnect(_connect: any): void {
+        this.connect = _connect;
     }
     
     getReducer(): Reducer<StateType> {
@@ -36,15 +41,22 @@ export class ArkModule<StateType = any, ControllerType = any> implements IArkMod
         return this.package.store.getState()[this.id];
     }
 
-    attachRedux(connect: any, mapStateToProps: (state: StateType) => Object) {
-        return (component: React.ComponentClass | React.FunctionComponent) => {
-            return connect((state: any) => mapStateToProps((state as any)[this.id]))(component);
+    attachRedux(connect: any) {
+        return (component: React.ComponentType<any>) => {
+            return connect((state: any) => ({
+                context: (state as any)[this.id]
+            }))(component);
         }
     }
 
     attachContextToComponent(masterProps: { module: ArkModule }) {
-        return (Component: React.ComponentClass | React.FunctionComponent) => {
-            return (props: any) => <Component {...props} {...masterProps} />
+        if (!this.connect) {
+            throw new Error(`You probably missed out useConnect in module '${this.id}'`)
+        }
+        return (Component: React.ComponentType<any>) => {
+            return this.connect((state: any) => ({
+                context: (state as any)[this.id]
+            }))((props: any) => <Component {...props} {...masterProps} />)
         }
     }
 

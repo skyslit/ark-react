@@ -32,18 +32,19 @@ export type ServiceProviderConfiguration<Providers> = {
     [k in Providers]: AxiosRequestConfig
 }
 
+export type ServiceProviderMap<ModuleType> = {
+
+}
+
 export class ArkPackage<ModuleType = any, ConfigType extends BaseConfigType = BaseConfigType, ServiceProviderType = ServiceProviderBase> implements IArkPackage<ModuleType> {
-    static instance: ArkPackage;
-    static createInstance<ModuleType>(): ArkPackage<ModuleType> {
-        return ArkPackage.getInstance();
-    }
-    static getInstance<ModuleType>(): ArkPackage<ModuleType> {
+    static instance: any;
+    static getInstance<ModuleType = any, ConfigType extends BaseConfigType = BaseConfigType, ServiceProviderType = ServiceProviderBase>(): ArkPackage<ModuleType, ConfigType, ServiceProviderType> {
         if (!ArkPackage.instance) {
-            ArkPackage.instance = new ArkPackage<ModuleType>();
-            return ArkPackage.instance as ArkPackage<ModuleType>;
+            ArkPackage.instance = new ArkPackage<ModuleType, ConfigType, ServiceProviderType>();
+            return ArkPackage.instance as ArkPackage<ModuleType, ConfigType, ServiceProviderType>;
         }
 
-        return ArkPackage.instance as ArkPackage<ModuleType>;
+        return ArkPackage.instance as ArkPackage<ModuleType, ConfigType, ServiceProviderType>;
     }
 
     modules: ModuleType = {} as any
@@ -51,8 +52,8 @@ export class ArkPackage<ModuleType = any, ConfigType extends BaseConfigType = Ba
     store: Store<PackageStateType<ModuleType>> = null;
     configOpts: ConfigEnvironment<ConfigType> = { 'default': {} as any };
     configMode: string = 'default';
-    _serviceProviders: ServiceProvider<ServiceProviderType> = {} as any;
-    _serviceProviderConfigurations: ServiceProviderConfiguration<ServiceProviderType> = {} as any;
+    private _serviceProviders: ServiceProvider<ServiceProviderType> = {} as any;
+    private _serviceProviderConfigurations: ServiceProviderConfiguration<ServiceProviderType> = {} as any;
 
     Router: React.FunctionComponent<{ location?: string }>
 
@@ -99,6 +100,10 @@ export class ArkPackage<ModuleType = any, ConfigType extends BaseConfigType = Ba
             }
         });
 
+        if (Object.keys(reducerMap).length < 1) {
+            console.warn('None of your modules use a valid reducer. So please consider NOT using setupStore() in your code')
+        }
+
         let composeScript = null;
         let middlewares: any[] = [];
         if (enableReduxDevTool) {
@@ -119,20 +124,23 @@ export class ArkPackage<ModuleType = any, ConfigType extends BaseConfigType = Ba
         return this.store;
     }
 
-    __normalizeProviderConfiguration(config: AxiosRequestConfig): AxiosRequestConfig {
+    private __normalizeProviderConfiguration(config: AxiosRequestConfig): AxiosRequestConfig {
         config.baseURL = this.getConfig().baseUrl;
         return config;
     }
 
-    _getServiceProviderConfiguration(provider: ServiceProviderType): AxiosRequestConfig {
+    private _getServiceProviderConfiguration(provider: ServiceProviderType): AxiosRequestConfig {
+        /** Set default axios configuration such as default baseValue */
+        // @ts-ignore
+        this._serviceProviderConfigurations[provider] = this.__normalizeProviderConfiguration({});
+
+        /** Try to fetch configuration from provided values */
         // @ts-ignore
         if (this._serviceProviderConfigurations[provider]) {
             // @ts-ignore
             return this._serviceProviderConfigurations[provider];
         }
 
-        // @ts-ignore
-        this._serviceProviderConfigurations[provider] = this.__normalizeProviderConfiguration({});
         // @ts-ignore
         return this._serviceProviderConfigurations[provider];
     }
