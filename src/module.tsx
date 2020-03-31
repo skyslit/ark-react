@@ -2,8 +2,11 @@ import React from 'react';
 import { IArkModule, ComponentMap, ActionTypes } from "./types"
 import { ArkPackage } from "./package"
 import { Reducer } from "redux";
+import Axios, { AxiosInstance } from 'axios';
 
-export class ArkModule<StateType = any> implements IArkModule<StateType> {
+type ProviderMap<T> = Record<Extract<T, string>, AxiosInstance>;
+
+export class ArkModule<StateType = any, Providers = any> implements IArkModule<StateType> {
     type: string = null;
     id: string = null;
 
@@ -15,6 +18,8 @@ export class ArkModule<StateType = any> implements IArkModule<StateType> {
     actionTypes: ActionTypes = {} as any;
 
     private connect: any;
+    
+    providers: ProviderMap<Providers> = {} as any
 
     constructor (type: string, opts?: Partial<ArkModule>) {
         this.type = type;
@@ -41,15 +46,20 @@ export class ArkModule<StateType = any> implements IArkModule<StateType> {
         return this.package.store.getState()[this.id];
     }
 
-    attachRedux(connect: any) {
-        return (component: React.ComponentType<any>) => {
-            return connect((state: any) => ({
-                context: (state as any)[this.id]
-            }))(component);
+    getServiceProvider(id: Providers): AxiosInstance {
+        // @ts-ignore
+        if (this.providers[id]) {
+            // @ts-ignore
+            return this.providers[id];
         }
+
+        // @ts-ignore
+        this.providers[id] = this.package._resolveServiceProvider(this.id, id);
+        // @ts-ignore
+        return this.providers[id];
     }
 
-    attachContextToComponent(masterProps: { module: ArkModule }) {
+    private attachContextToComponent(masterProps: { module: ArkModule }) {
         if (!this.connect) {
             throw new Error(`You probably missed out useConnect in module '${this.id}'`)
         }
@@ -70,5 +80,9 @@ export class ArkModule<StateType = any> implements IArkModule<StateType> {
         Object.keys(componentMap).forEach(key => {
             (componentMap as any)[key] = this.attachContextToComponent({ module: this })(componentMap[key]);
         })
+    }
+
+    main() {
+        
     }
 }

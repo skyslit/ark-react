@@ -3,7 +3,7 @@ import { createStore, compose, applyMiddleware, combineReducers, Store } from "r
 import { Switch, Route, BrowserRouter, StaticRouter } from 'react-router-dom';
 import Axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import { ArkModule } from './module';
-import { IArkPackage, PackageRouteConfig, ArkPackageOption } from './types';
+import { IArkPackage, PackageRouteConfig, ArkPackageOption, IArkModule } from './types';
 
 export type PackageStateType<ModuleType> = {
     // @ts-ignore
@@ -12,15 +12,13 @@ export type PackageStateType<ModuleType> = {
 
 export type ConfigEnvironment<T> = {
     default: T
-    development?: T
-    staging?: T
-    production?: T
+    development?: Partial<T>
+    staging?: Partial<T>
+    production?: Partial<T>
     [k: string]: Partial<T>
 }
 
-export type BaseConfigType = {
-    baseUrl?: string
-}
+export type BaseConfigType<SPT = 'Main'> = Record<Extract<SPT, string>, Partial<AxiosRequestConfig>>
 
 export type ServiceProviderBase = 'Main'
 export type ServiceProvider<Providers> = {
@@ -32,9 +30,16 @@ export type ServiceProviderConfiguration<Providers> = {
     [k in Providers]: AxiosRequestConfig
 }
 
-export class ArkPackage<ModuleType = any, ConfigType extends BaseConfigType = BaseConfigType, ServiceProviderType = ServiceProviderBase> implements IArkPackage<ModuleType> {
+export type ModuleServiceProviderMap<ModuleType> = {
+    [k in keyof ModuleType]?: {
+        // @ts-ignore
+        [y in keyof ModuleType[k]["providers"]]?: AxiosInstance
+    }
+}
+
+export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServiceProviderType = ServiceProviderBase> implements IArkPackage<ModuleType> {
     static instance: any;
-    static getInstance<ModuleType = any, ConfigType extends BaseConfigType = BaseConfigType, ServiceProviderType = ServiceProviderBase>(): ArkPackage<ModuleType, ConfigType, ServiceProviderType> {
+    static getInstance<ModuleType = any, ConfigType = BaseConfigType, ServiceProviderType = ServiceProviderBase>(): ArkPackage<ModuleType, ConfigType, ServiceProviderType> {
         if (!ArkPackage.instance) {
             ArkPackage.instance = new ArkPackage<ModuleType, ConfigType, ServiceProviderType>();
             return ArkPackage.instance as ArkPackage<ModuleType, ConfigType, ServiceProviderType>;
@@ -46,8 +51,9 @@ export class ArkPackage<ModuleType = any, ConfigType extends BaseConfigType = Ba
     modules: ModuleType = {} as any
     routeConfig: PackageRouteConfig[] = [];
     store: Store<PackageStateType<ModuleType>> = null;
-    configOpts: ConfigEnvironment<ConfigType> = { 'default': {} as any };
+    configOpts: ConfigEnvironment<ConfigType & BaseConfigType<ServiceProviderType>> = { 'default': {} as any };
     configMode: string = 'default';
+    serviceProviderModuleMap: ModuleServiceProviderMap<ModuleType> = {} as any;
     private _serviceProviders: ServiceProvider<ServiceProviderType> = {} as any;
     private _serviceProviderConfigurations: ServiceProviderConfiguration<ServiceProviderType> = {} as any;
 
@@ -76,7 +82,7 @@ export class ArkPackage<ModuleType = any, ConfigType extends BaseConfigType = Ba
 
     getConfig(): Readonly<ConfigType> {
         if (this.configOpts[this.configMode]) {
-            return this.configOpts[this.configMode] as any;
+            return Object.assign({}, this.configOpts['default'], this.configOpts[this.configMode] as any);
         } else {
             return this.configOpts['default'];
         }
@@ -120,28 +126,31 @@ export class ArkPackage<ModuleType = any, ConfigType extends BaseConfigType = Ba
         return this.store;
     }
 
-    private __normalizeProviderConfiguration(config: AxiosRequestConfig): AxiosRequestConfig {
-        config.baseURL = this.getConfig().baseUrl;
-        return config;
+    private _getServiceProviderConfiguration(provider: ServiceProviderType): AxiosRequestConfig {
+        // @ts-ignore
+        if (this.getConfig()[provider]) {
+            // @ts-ignore
+            return this.getConfig()[provider] as AxiosRequestConfig;
+        }
+
+        return {}
     }
 
-    private _getServiceProviderConfiguration(provider: ServiceProviderType): AxiosRequestConfig {
-        /** Set default axios configuration such as default baseValue */
+    _resolveServiceProvider(moduleId: string, providerId: string) {
         // @ts-ignore
-        this._serviceProviderConfigurations[provider] = this.__normalizeProviderConfiguration({});
-
-        /** Try to fetch configuration from provided values */
-        // @ts-ignore
-        if (this._serviceProviderConfigurations[provider]) {
+        if (this.serviceProviderModuleMap[moduleId]) {
             // @ts-ignore
-            return this._serviceProviderConfigurations[provider];
+            if (this.serviceProviderModuleMap[moduleId][providerId]) {
+                // @ts-ignore
+                return this.serviceProviderModuleMap[moduleId][providerId];
+            }
         }
 
         // @ts-ignore
-        return this._serviceProviderConfigurations[provider];
+        return this.getServiceProvider('Main');
     }
 
-    getServiceProvider(provider: ServiceProviderBase): AxiosInstance {
+    getServiceProvider(provider: ServiceProviderType): AxiosInstance {
         // @ts-ignore
         if (this._serviceProviders[provider]) {
             // @ts-ignore
@@ -154,7 +163,18 @@ export class ArkPackage<ModuleType = any, ConfigType extends BaseConfigType = Ba
         return this._serviceProviders[provider];
     }
 
+    initializeModules() {
+        Object.keys(this.modules).forEach(module => {
+            // @ts-ignore
+            if (this.modules[module]) {
+                // @ts-ignore
+                this.modules[module].main();
+            }
+        })
+    }
+
     initialize(mode: 'Browser' | 'Server', done: (err: Error, options: ArkPackageOption<ModuleType, PackageStateType<ModuleType>>) => void) {
+        this.initializeModules();
         const Router: any = mode === 'Browser' ? BrowserRouter : StaticRouter
         this.Router = (props) => (
             <Router location={props.location}>
