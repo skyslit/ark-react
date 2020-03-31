@@ -37,6 +37,10 @@ export type ModuleServiceProviderMap<ModuleType> = {
     }
 }
 
+export type PackageConfiguration = {
+    autoConfigureInitialRoutes: boolean
+}
+
 export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServiceProviderType = ServiceProviderBase> implements IArkPackage<ModuleType> {
     static instance: any;
     static getInstance<ModuleType = any, ConfigType = BaseConfigType, ServiceProviderType = ServiceProviderBase>(): ArkPackage<ModuleType, ConfigType, ServiceProviderType> {
@@ -54,10 +58,21 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
     configOpts: ConfigEnvironment<ConfigType & BaseConfigType<ServiceProviderType>> = { 'default': {} as any };
     configMode: string = 'default';
     serviceProviderModuleMap: ModuleServiceProviderMap<ModuleType> = {} as any;
+    private packageConfiguration: Partial<PackageConfiguration> = {} as any;
     private _serviceProviders: ServiceProvider<ServiceProviderType> = {} as any;
     private _serviceProviderConfigurations: ServiceProviderConfiguration<ServiceProviderType> = {} as any;
 
     Router: React.FunctionComponent<{ location?: string }>
+
+    configure(opts: Partial<PackageConfiguration>) {
+        this.packageConfiguration = opts;
+    }
+
+    private getPackageConfiguration(): Readonly<PackageConfiguration> {
+        return Object.assign<Partial<PackageConfiguration>, any>({
+            autoConfigureInitialRoutes: false
+        }, this.packageConfiguration);
+    }
 
     registerModule(id: string, _module: ArkModule) {
         // Register views
@@ -163,10 +178,21 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
         return this._serviceProviders[provider];
     }
 
-    initializeModules() {
+    private _initializeRoutes(module: ArkModule) {
+        const config = this.getPackageConfiguration();
+        if (config.autoConfigureInitialRoutes && config.autoConfigureInitialRoutes === true) {
+            const defaultRoutes = module.getDefaultRoutes();
+            if (Array.isArray(defaultRoutes)) {
+                this.routeConfig.push(...defaultRoutes);
+            }
+        }
+    }
+
+    private _initializeModules() {
         Object.keys(this.modules).forEach(module => {
             // @ts-ignore
             if (this.modules[module]) {
+                this._initializeRoutes((this.modules as any)[module]);
                 // @ts-ignore
                 this.modules[module].main();
             }
@@ -174,7 +200,8 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
     }
 
     initialize(mode: 'Browser' | 'Server', done: (err: Error, options: ArkPackageOption<ModuleType, PackageStateType<ModuleType>>) => void) {
-        this.initializeModules();
+        this._initializeModules();
+        
         const Router: any = mode === 'Browser' ? BrowserRouter : StaticRouter
         this.Router = (props) => (
             <Router location={props.location}>

@@ -1,7 +1,7 @@
 import React from 'react';
-import { IArkModule, ComponentMap, ActionTypes } from "./types"
+import { IArkModule, ComponentMap, ActionTypes, PackageRouteConfig } from "./types"
 import { ArkPackage } from "./package"
-import { Reducer } from "redux";
+import { Reducer, AnyAction } from "redux";
 import Axios, { AxiosInstance } from 'axios';
 
 type ProviderMap<T> = Record<Extract<T, string>, AxiosInstance>;
@@ -14,6 +14,7 @@ export class ArkModule<StateType = any, Providers = any> implements IArkModule<S
     views: ComponentMap = {};
     components: ComponentMap = {};
     controller: any;
+    services: any;
     state: StateType = {} as any;
     actionTypes: ActionTypes = {} as any;
 
@@ -44,6 +45,10 @@ export class ArkModule<StateType = any, Providers = any> implements IArkModule<S
             throw new Error('Store has not setup yet');
         }
         return this.package.store.getState()[this.id];
+    }
+
+    dispatch(action: AnyAction): AnyAction {
+        return this.package.store.dispatch(action);
     }
 
     getServiceProvider(id: Providers): AxiosInstance {
@@ -82,7 +87,9 @@ export class ArkModule<StateType = any, Providers = any> implements IArkModule<S
         })
     }
 
-    main() {
-        
+    main() {}
+
+    getDefaultRoutes(): PackageRouteConfig[] {
+        return [];
     }
 }

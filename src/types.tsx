@@ -19,6 +19,7 @@ export interface IArkModule<StateType = any> {
     views: ComponentMap
     components: ComponentMap
     controller: any
+    services: any
     state: StateType
     actionTypes: ActionTypes
     
