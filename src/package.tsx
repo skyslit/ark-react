@@ -1,9 +1,44 @@
 import React from 'react';
-import { createStore, compose, applyMiddleware, combineReducers, Store } from "redux";
+import { createStore, compose, applyMiddleware, combineReducers, Store, AnyAction, Reducer } from "redux";
 import { Switch, Route, BrowserRouter, StaticRouter } from 'react-router-dom';
 import Axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import { ArkModule } from './module';
 import { IArkPackage, PackageRouteConfig, ArkPackageOption, IArkModule } from './types';
+
+type CORE_PACKAGE_ID_TYPE = '__CORE_PACKAGE';
+export const CORE_PACKAGE_ID: CORE_PACKAGE_ID_TYPE = '__CORE_PACKAGE';
+
+export type PackageGlobalState = {
+    isAuthenticated: boolean
+    token: string
+    userInfo: any
+}
+
+export const PackageStoreType = {
+    CORE_SET_CURRENT_USER: `${CORE_PACKAGE_ID}_SET_CURRENT_USER`
+}
+
+const initialState: PackageGlobalState = {
+    isAuthenticated: false,
+    token: null,
+    userInfo: null
+}
+
+const createPackageReducer = (): Reducer => (state: Partial<PackageGlobalState> = initialState, action: AnyAction) => {
+    switch (action.type) {
+        case PackageStoreType.CORE_SET_CURRENT_USER: {
+            const { isAuthenticated, userInfo, token } = action.payload;
+            return Object.assign({}, state, {
+                isAuthenticated,
+                userInfo,
+                token
+            })
+        }
+        default: {
+            return state;
+        }
+    }
+}
 
 export type PackageStateType<ModuleType> = {
     // @ts-ignore
@@ -54,7 +89,7 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
 
     modules: ModuleType = {} as any
     routeConfig: PackageRouteConfig[] = [];
-    store: Store<PackageStateType<ModuleType>> = null;
+    store: Store<Record<CORE_PACKAGE_ID_TYPE, PackageGlobalState> & PackageStateType<ModuleType>> = null;
     configOpts: ConfigEnvironment<ConfigType & BaseConfigType<ServiceProviderType>> = { 'default': {} as any };
     configMode: string = 'default';
     serviceProviderModuleMap: ModuleServiceProviderMap<ModuleType> = {} as any;
@@ -109,7 +144,9 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
         }
 
         // Aggregate reducers from all modules
-        const reducerMap: any = {};
+        const reducerMap: any = {
+            [CORE_PACKAGE_ID]: createPackageReducer()
+        };
         Object.keys(this.modules).forEach((id) => {
             const _reducer: any = (this.modules as any)[id].getReducer();
             if (_reducer) {

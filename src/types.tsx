@@ -1,7 +1,7 @@
 import React from 'react';
 import { Reducer, Store } from 'redux';
 import { RouteComponentProps } from 'react-router-dom';
-import { ArkPackage } from "./package";
+import { ArkPackage, PackageGlobalState } from "./package";
 
 export type ComponentMap = {
     [key: string]: React.ComponentType<any>
@@ -27,7 +27,6 @@ export interface IArkModule<StateType = any> {
     getState: () => StateType
 }
 
-
 export type ArkPackageOption<ModuleType = any, PackageStateType = any> = Readonly<IArkPackage<ModuleType, PackageStateType>>
 
 export type PackageRouteConfig = {
@@ -47,6 +46,7 @@ export interface IArkPackage<ModuleType = any, PackageStateType = any> {
 }
 
 export type ComponentPropType<ModuleType extends IArkModule> = {
+    global: PackageGlobalState
     module: ModuleType
     context: {
         [k in keyof ModuleType["state"]]: ModuleType["state"][k]

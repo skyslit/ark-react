@@ -1,6 +1,6 @@
 import React from 'react';
 import { IArkModule, ComponentMap, ActionTypes, PackageRouteConfig } from "./types"
-import { ArkPackage } from "./package"
+import { ArkPackage, PackageStoreType, CORE_PACKAGE_ID } from "./package"
 import { Reducer, AnyAction } from "redux";
 import Axios, { AxiosInstance } from 'axios';
 
@@ -64,12 +64,42 @@ export class ArkModule<StateType = any, Providers = any> implements IArkModule<S
         return this.providers[id];
     }
 
+    setCurrentUser(isAuthenticated: boolean = false, token: string = null, userInfo: any = null): void {
+        this.dispatch({
+            type: PackageStoreType.CORE_SET_CURRENT_USER,
+            payload: {
+                isAuthenticated,
+                userInfo,
+                token
+            }
+        })
+    }
+
+    getCurrentUser<T = any>(): Readonly<T> {
+        const state = this.package.store.getState();
+        if (state && state.__CORE_PACKAGE) {
+            return state.__CORE_PACKAGE.userInfo;
+        }
+        
+        return null;
+    }
+
+    isAuthenticated(): boolean {
+        const state = this.package.store.getState();
+        if (state && state.__CORE_PACKAGE) {
+            return state.__CORE_PACKAGE.isAuthenticated === true;
+        }
+
+        return false;
+    }
+
     private attachContextToComponent(masterProps: { module: ArkModule }) {
         if (!this.connect) {
             throw new Error(`You probably missed out useConnect in module '${this.id}'`)
         }
         return (Component: React.ComponentType<any>) => {
             return this.connect((state: any) => ({
+                global: (state as any)[CORE_PACKAGE_ID],
                 context: (state as any)[this.id]
             }))((props: any) => <Component {...props} {...masterProps} />)
         }
