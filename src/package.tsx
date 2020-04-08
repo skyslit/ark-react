@@ -5,6 +5,7 @@ import Axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import { ArkModule } from './module';
 import { IArkPackage, PackageRouteConfig, ArkPackageOption, ConditionalRouteProps } from './types';
 import queryString from 'query-string';
+import { loadTheme, removeThemeLink } from './browser';
 
 type CORE_PACKAGE_ID_TYPE = '__CORE_PACKAGE';
 export const CORE_PACKAGE_ID: CORE_PACKAGE_ID_TYPE = '__CORE_PACKAGE';
@@ -13,16 +14,23 @@ export type PackageGlobalState = {
     isAuthenticated: boolean
     token: string
     userInfo: any
+    currentThemeId: string
+    currentThemeType: 'light' | 'dark'
+    isThemeChanging: boolean
 }
 
 export const PackageStoreType = {
-    CORE_SET_CURRENT_USER: `${CORE_PACKAGE_ID}_SET_CURRENT_USER`
+    CORE_SET_CURRENT_USER: `${CORE_PACKAGE_ID}_SET_CURRENT_USER`,
+    CORE_SET_THEME: `${CORE_PACKAGE_ID}_SET_THEME`,
 }
 
 const initialState: PackageGlobalState = {
     isAuthenticated: false,
     token: null,
-    userInfo: null
+    userInfo: null,
+    currentThemeId: 'default',
+    currentThemeType: 'light',
+    isThemeChanging: false
 }
 
 const createPackageReducer = (): Reducer => (state: Partial<PackageGlobalState> = initialState, action: AnyAction) => {
@@ -33,6 +41,14 @@ const createPackageReducer = (): Reducer => (state: Partial<PackageGlobalState> 
                 isAuthenticated,
                 userInfo,
                 token
+            })
+        }
+        case PackageStoreType.CORE_SET_THEME: {
+            const { currentThemeId, isThemeChanging, currentThemeType } = action.payload;
+            return Object.assign({}, state, {
+                currentThemeId,
+                currentThemeType: currentThemeType ? currentThemeType : 'light',
+                isThemeChanging: isThemeChanging ? isThemeChanging : false
             })
         }
         default: {
@@ -77,6 +93,12 @@ export type PackageConfiguration = {
     autoConfigureInitialRoutes: boolean
 }
 
+export type ThemePack = {
+    id: string
+    url: string
+    type: 'light' | 'dark'
+}
+
 export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServiceProviderType = ServiceProviderBase> implements IArkPackage<ModuleType> {
     static instance: any;
     static getInstance<ModuleType = any, ConfigType = BaseConfigType, ServiceProviderType = ServiceProviderBase>(): ArkPackage<ModuleType, ConfigType, ServiceProviderType> {
@@ -88,12 +110,21 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
         return ArkPackage.instance as ArkPackage<ModuleType, ConfigType, ServiceProviderType>;
     }
 
+    mode: 'Browser' | 'Server' = null;
     modules: ModuleType = {} as any
     routeConfig: PackageRouteConfig[] = [];
     store: Store<Record<CORE_PACKAGE_ID_TYPE, PackageGlobalState> & PackageStateType<ModuleType>> = null;
     configOpts: ConfigEnvironment<ConfigType & BaseConfigType<ServiceProviderType>> = { 'default': {} as any };
     configMode: string = 'default';
     serviceProviderModuleMap: ModuleServiceProviderMap<ModuleType> = {} as any;
+    themes: ThemePack[] = [
+        {
+            id: 'default',
+            type: 'light',
+            url: null
+        }
+    ];
+
     private packageConfiguration: Partial<PackageConfiguration> = {} as any;
     private _serviceProviders: ServiceProvider<ServiceProviderType> = {} as any;
     private _serviceProviderConfigurations: ServiceProviderConfiguration<ServiceProviderType> = {} as any;
@@ -122,6 +153,84 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
         this.modules[id] = _module;
     }
 
+    registerThemes(...themes: ThemePack[]) {
+        this.themes.push(...themes);
+    }
+
+    setTheme(id: string) {
+        if (id === 'default') {
+            this.store.dispatch({
+                type: PackageStoreType.CORE_SET_THEME,
+                payload: {
+                    currentThemeId: id,
+                    currentThemeType: 'light',
+                    isThemeChanging: false
+                }
+            })
+            if (localStorage && localStorage !== undefined) {
+                localStorage.removeItem('selected-theme-id');
+            }
+            if (this.mode === 'Browser') {
+                removeThemeLink();
+            }
+            return;
+        }
+
+        if (!this.mode) {
+            throw new Error('setTheme can only be called after initialize call');
+        }
+
+        const theme = this.themes.find(t => t.id === id);
+        if (theme) {
+            // Get old theme id
+            const state = this.store.getState();
+            const oldThemeId = state.__CORE_PACKAGE.currentThemeId;
+            const oldThemeType = state.__CORE_PACKAGE.currentThemeType;
+
+            this.store.dispatch({
+                type: PackageStoreType.CORE_SET_THEME,
+                payload: {
+                    currentThemeId: id,
+                    currentThemeType: theme.type,
+                    isThemeChanging: true
+                }
+            })
+            if (this.mode === 'Browser') {
+                if (document && document !== undefined) {
+                    loadTheme(theme.id, theme.url, (success, link) => {
+                        if (success) {
+                            setTimeout(() => {
+                                removeThemeLink(oldThemeId);
+                                this.store.dispatch({
+                                    type: PackageStoreType.CORE_SET_THEME,
+                                    payload: {
+                                        currentThemeId: id,
+                                        currentThemeType: theme.type,
+                                        isThemeChanging: false
+                                    }
+                                })
+                            }, 1000);
+                            if (localStorage && localStorage !== undefined) {
+                                localStorage.setItem('selected-theme-id', id);
+                            }
+                        } else {
+                            this.store.dispatch({
+                                type: PackageStoreType.CORE_SET_THEME,
+                                payload: {
+                                    currentThemeId: oldThemeId,
+                                    currentThemeType: oldThemeType,
+                                    isThemeChanging: false
+                                }
+                            })
+                        }
+                    }, this)
+                }
+            }
+        } else {
+            throw new Error(`Theme ID '${id}' is not registered`);
+        }
+    }
+
     getModuleByType<ModuleType = any>(type: string): ModuleType {
         Object.keys(this.modules).forEach((id) => {
             if ((this.modules as any)[id].type === type) {
@@ -140,13 +249,10 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
         }
     }
 
-    setupStore(connect: any, enableReduxDevTool: boolean = false): Store<PackageStateType<ModuleType>> {
+    setupStore(enableReduxDevTool: boolean = false): Store<PackageStateType<ModuleType>> {
         if (this.store) {
             return this.store;
         }
-
-        // Attach redux connector
-        this._reduxConnector = connect;
 
         // Aggregate reducers from all modules
         const reducerMap: any = {
@@ -180,6 +286,10 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
         }
 
         this.store = createStore<PackageStateType<ModuleType>, any, any, any>(combineReducers<PackageStateType<ModuleType>>(reducerMap), composeScript);
+
+        // Initialze state dependent process
+        this._initializeTheme();
+
         return this.store;
     }
 
@@ -227,6 +337,19 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
         return this._serviceProviders[provider];
     }
 
+    private _initializeTheme() {
+        if (this.mode === 'Browser') {
+            if (localStorage && localStorage !== undefined) {
+                const themeId = localStorage.getItem('selected-theme-id');
+                if (themeId && themeId !== '') {
+                    this.setTheme(themeId);
+                }
+            }
+        } else {
+            console.warn('Theme setup skipped in server');
+        }
+    }
+
     private _initializeRoutes(module: ArkModule) {
         const config = this.getPackageConfiguration();
         if (config.autoConfigureInitialRoutes && config.autoConfigureInitialRoutes === true) {
@@ -248,28 +371,48 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
         })
     }
 
-    initialize(mode: 'Browser' | 'Server', done: (err: Error, options: ArkPackageOption<ModuleType, PackageStateType<ModuleType>>) => void) {
+    initialize(mode: 'Browser' | 'Server', done: (err: Error, options: ArkPackageOption<ModuleType, PackageStateType<ModuleType>>) => void, connect?: any) {
+        this.mode = mode;
+
+        // Attach redux connector
+        this._reduxConnector = connect;
+
         this._initializeModules();
         this.Router = (props) => {
+            console.log(props);
             let RouterComponent: any = mode === 'Browser' ? BrowserRouter : StaticRouter
         
-            // Connect component if redux connector is available
-            if (this._reduxConnector) {
-                RouterComponent = this._reduxConnector((state: any) => ({ reduxState: state }))(RouterComponent);
+            const getThemeClass = () => {
+                const state = this.store.getState();
+                let themeId: string = 'default';
+                let themeType: string = 'light';
+                if (state && state.__CORE_PACKAGE) {
+                    themeId = state.__CORE_PACKAGE.currentThemeId;
+                    themeType = state.__CORE_PACKAGE.currentThemeType;
+                }
+
+                return `${themeId} ${themeType}`;
             }
 
             return (
                 <RouterComponent location={props.location}>
-                    <Switch>
-                        {
-                            this.routeConfig.map((route: PackageRouteConfig, index: number) => {
-                                const _Route = route.Router || Route;
-                                return <_Route key={index} {...route} />
-                            })
-                        }
-                    </Switch>
+                    <div className={`${getThemeClass()} h-100`}>
+                        <Switch>
+                            {
+                                this.routeConfig.map((route: PackageRouteConfig, index: number) => {
+                                    const _Route = route.Router || Route;
+                                    return <_Route key={index} {...route} />
+                                })
+                            }
+                        </Switch>
+                    </div>
                 </RouterComponent>
             )
+        }
+
+        // Connect component if redux connector is available
+        if (this._reduxConnector) {
+            this.Router = this._reduxConnector((state: any) => ({ reduxState: state }))(this.Router);
         }
 
         done(null, this as any);
