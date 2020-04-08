@@ -43,5 +43,8 @@
     "webpack": "^4.42.1",
     "webpack-cli": "^3.3.11",
     "axios": "^0.19.2"
+  },
+  "dependencies": {
+    "query-string": "^6.12.0"
   }
 }

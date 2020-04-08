@@ -1,9 +1,10 @@
 import React from 'react';
 import { createStore, compose, applyMiddleware, combineReducers, Store, AnyAction, Reducer } from "redux";
-import { Switch, Route, BrowserRouter, StaticRouter } from 'react-router-dom';
+import { Switch, Route, BrowserRouter, StaticRouter, Redirect, RouteComponentProps, RouteProps } from 'react-router-dom';
 import Axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import { ArkModule } from './module';
-import { IArkPackage, PackageRouteConfig, ArkPackageOption, IArkModule } from './types';
+import { IArkPackage, PackageRouteConfig, ArkPackageOption, ConditionalRouteProps } from './types';
+import queryString from 'query-string';
 
 type CORE_PACKAGE_ID_TYPE = '__CORE_PACKAGE';
 export const CORE_PACKAGE_ID: CORE_PACKAGE_ID_TYPE = '__CORE_PACKAGE';
@@ -96,6 +97,7 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
     private packageConfiguration: Partial<PackageConfiguration> = {} as any;
     private _serviceProviders: ServiceProvider<ServiceProviderType> = {} as any;
     private _serviceProviderConfigurations: ServiceProviderConfiguration<ServiceProviderType> = {} as any;
+    private _reduxConnector: any = null;
 
     Router: React.FunctionComponent<{ location?: string }>
 
@@ -138,10 +140,13 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
         }
     }
 
-    setupStore(enableReduxDevTool: boolean = false): Store<PackageStateType<ModuleType>> {
+    setupStore(connect: any, enableReduxDevTool: boolean = false): Store<PackageStateType<ModuleType>> {
         if (this.store) {
             return this.store;
         }
+
+        // Attach redux connector
+        this._reduxConnector = connect;
 
         // Aggregate reducers from all modules
         const reducerMap: any = {
@@ -176,6 +181,13 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
 
         this.store = createStore<PackageStateType<ModuleType>, any, any, any>(combineReducers<PackageStateType<ModuleType>>(reducerMap), composeScript);
         return this.store;
+    }
+
+    isAuthenticated(): boolean {
+        const state = this.store.getState();
+        if (state && state.__CORE_PACKAGE) {
+            return state.__CORE_PACKAGE.isAuthenticated && state.__CORE_PACKAGE.isAuthenticated === true;
+        }
     }
 
     private _getServiceProviderConfiguration(provider: ServiceProviderType): AxiosRequestConfig {
@@ -238,20 +250,61 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
 
     initialize(mode: 'Browser' | 'Server', done: (err: Error, options: ArkPackageOption<ModuleType, PackageStateType<ModuleType>>) => void) {
         this._initializeModules();
+        this.Router = (props) => {
+            let RouterComponent: any = mode === 'Browser' ? BrowserRouter : StaticRouter
         
-        const Router: any = mode === 'Browser' ? BrowserRouter : StaticRouter
-        this.Router = (props) => (
-            <Router location={props.location}>
-                <Switch>
-                    {
-                        this.routeConfig.map((route: PackageRouteConfig, index: number) => {
-                            return <Route key={index} {...route} />
-                        })
-                    }
-                </Switch>
-            </Router>
-        )
+            // Connect component if redux connector is available
+            if (this._reduxConnector) {
+                RouterComponent = this._reduxConnector((state: any) => ({ reduxState: state }))(RouterComponent);
+            }
+
+            return (
+                <RouterComponent location={props.location}>
+                    <Switch>
+                        {
+                            this.routeConfig.map((route: PackageRouteConfig, index: number) => {
+                                const _Route = route.Router || Route;
+                                return <_Route key={index} {...route} />
+                            })
+                        }
+                    </Switch>
+                </RouterComponent>
+            )
+        }
 
         done(null, this as any);
     }
+}
+
+function ConditionalRoute(outterProps: RouteProps & ConditionalRouteProps) {
+    return <Route {...(outterProps as any)} children={(childProps) => {
+        let redirectUrl = outterProps.onFailureRedirectPath;
+
+        if (outterProps.predicate) {
+            const predicateValue = outterProps.predicate();
+            if (typeof predicateValue === 'boolean' && predicateValue === true) {
+                return <outterProps.component {...childProps} />
+            } else if (typeof predicateValue === 'string') {
+                redirectUrl = predicateValue;
+            }
+        }
+
+        if (outterProps.attachReturnUrl === true) {
+            let searchParams = queryString.parseUrl(outterProps.location.pathname);
+            searchParams.query.redirect = encodeURI(outterProps.location.pathname);
+            redirectUrl = queryString.stringifyUrl({
+                query: searchParams.query,
+                url: redirectUrl
+            })
+        }
+
+        return <Redirect to={{
+            pathname: redirectUrl,
+            state: { from: outterProps.location }
+        }} />
+    }} />
+}
+
+export function withCondition(options: ConditionalRouteProps) {
+    return (props: RouteProps) => <ConditionalRoute {...options} {...props} />
 }

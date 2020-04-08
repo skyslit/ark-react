@@ -1,6 +1,6 @@
 import React from 'react';
 import { Reducer, Store } from 'redux';
-import { RouteComponentProps } from 'react-router-dom';
+import { RouteComponentProps, RouteProps } from 'react-router-dom';
 import { ArkPackage, PackageGlobalState } from "./package";
 
 export type ComponentMap = {
@@ -29,9 +29,14 @@ export interface IArkModule<StateType = any> {
 
 export type ArkPackageOption<ModuleType = any, PackageStateType = any> = Readonly<IArkPackage<ModuleType, PackageStateType>>
 
-export type PackageRouteConfig = {
-    path: string
-    component: React.ComponentType<any>
+export type ConditionalRouteProps = {
+    predicate: () => any
+    onFailureRedirectPath: string
+    attachReturnUrl?: boolean
+}
+
+export type PackageRouteConfig = RouteProps & {
+    Router?: (props: RouteProps) => any
 }
 
 export interface IArkPackage<ModuleType = any, PackageStateType = any> {

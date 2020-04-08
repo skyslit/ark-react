@@ -1,3 +1,3 @@
 export { ArkModule } from './module';
-export { ArkPackage, BaseConfigType } from './package';
-export { ComponentPropType, ViewComponentPropType } from './types';
+export { ArkPackage, BaseConfigType, withCondition } from './package';
+export { ComponentPropType, ViewComponentPropType, ConditionalRouteProps } from './types';
