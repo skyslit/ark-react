@@ -198,7 +198,7 @@ export class ToastCallout extends React.Component<ToastOption & ToastCalloutProp
                     })()} toggle={this.props.manualDismiss ? () => this.props.onDismiss && this.props.onDismiss(this.props.id) : null}>
                         {this.props.title}
                     </ToastHeader>
-                    <ToastBody style={{ minWidth: 275 }}>
+                    <ToastBody className="bg-light" style={{ minWidth: 275 }}>
                         {this.props.message}
                     </ToastBody>
                 </Toast>
