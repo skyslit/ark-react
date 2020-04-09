@@ -117,6 +117,22 @@ export class ArkModule<StateType = any, Providers = any> implements IArkModule<S
         })
     }
 
+    showMessage(message: string, title?: string) {
+        this.package.showMessage(message, title);
+    }
+
+    showWait(message: string, title?: string) {
+        this.package.showWait(message, title);
+    }
+
+    showError(message: string, title?: string) {
+        this.package.showError(message, title);
+    }
+
+    clearAlert() {
+        this.package.clearAlert();
+    }
+
     main() {}
 
     getDefaultRoutes(): PackageRouteConfig[] {

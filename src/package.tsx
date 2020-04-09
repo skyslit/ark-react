@@ -6,6 +6,7 @@ import { ArkModule } from './module';
 import { IArkPackage, PackageRouteConfig, ArkPackageOption, ConditionalRouteProps } from './types';
 import queryString from 'query-string';
 import { loadTheme, removeThemeLink } from './browser';
+import { AlertModal } from './components';
 
 type CORE_PACKAGE_ID_TYPE = '__CORE_PACKAGE';
 export const CORE_PACKAGE_ID: CORE_PACKAGE_ID_TYPE = '__CORE_PACKAGE';
@@ -17,11 +18,35 @@ export type PackageGlobalState = {
     currentThemeId: string
     currentThemeType: 'light' | 'dark'
     isThemeChanging: boolean
+
+    // Global Alerts
+    errorAlert: {
+        isOpen?: boolean
+        title?: string
+        message?: string
+        canCloseManually?: boolean
+    }
+    waitAlert: {
+        isOpen?: boolean
+        title?: string
+        message?: string
+        canCloseManually?: boolean
+    }
+    messageAlert: {
+        isOpen?: boolean
+        title?: string
+        message?: string
+        canCloseManually?: boolean
+    }
 }
 
 export const PackageStoreType = {
     CORE_SET_CURRENT_USER: `${CORE_PACKAGE_ID}_SET_CURRENT_USER`,
     CORE_SET_THEME: `${CORE_PACKAGE_ID}_SET_THEME`,
+    CORE_SET_ERROR: `${CORE_PACKAGE_ID}_SET_ERROR`,
+    CORE_SET_WAIT: `${CORE_PACKAGE_ID}_SET_WAIT`,
+    CORE_SET_MSG: `${CORE_PACKAGE_ID}_SET_MSG`,
+    CORE_CLEAR_ALERT: `${CORE_PACKAGE_ID}_CLEAR_ALERT`,
 }
 
 const initialState: PackageGlobalState = {
@@ -30,7 +55,18 @@ const initialState: PackageGlobalState = {
     userInfo: null,
     currentThemeId: 'default',
     currentThemeType: 'light',
-    isThemeChanging: false
+    isThemeChanging: false,
+
+    // Global Alerts
+    errorAlert: {
+        isOpen: false
+    },
+    waitAlert: {
+        isOpen: false
+    },
+    messageAlert: {
+        isOpen: false
+    }
 }
 
 const createPackageReducer = (): Reducer => (state: Partial<PackageGlobalState> = initialState, action: AnyAction) => {
@@ -49,6 +85,32 @@ const createPackageReducer = (): Reducer => (state: Partial<PackageGlobalState> 
                 currentThemeId,
                 currentThemeType: currentThemeType ? currentThemeType : 'light',
                 isThemeChanging: isThemeChanging ? isThemeChanging : false
+            })
+        }
+        case PackageStoreType.CORE_SET_MSG:
+        case PackageStoreType.CORE_SET_WAIT:
+        case PackageStoreType.CORE_SET_ERROR: {
+            const { value } = action.payload;
+            const _key = {
+                [PackageStoreType.CORE_SET_MSG]: 'messageAlert',
+                [PackageStoreType.CORE_SET_WAIT]: 'waitAlert',
+                [PackageStoreType.CORE_SET_ERROR]: 'errorAlert',
+            }
+            return Object.assign({}, state, {
+                [_key[action.type]]: value
+            })
+        }
+        case PackageStoreType.CORE_CLEAR_ALERT: {
+            return Object.assign({}, state, {
+                messageAlert: Object.assign({}, state.messageAlert, {
+                    isOpen: false
+                }),
+                errorAlert: Object.assign({}, state.errorAlert, {
+                    isOpen: false
+                }),
+                waitAlert: Object.assign({}, state.waitAlert, {
+                    isOpen: false
+                })
             })
         }
         default: {
@@ -231,6 +293,60 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
         }
     }
 
+    showMessage(message: string, title?: string, canCloseManually?: boolean) {
+        title = title ? title : 'Message';
+        canCloseManually = canCloseManually ? canCloseManually : false;
+        this.store.dispatch({
+            type: PackageStoreType.CORE_SET_MSG,
+            payload: {
+                value: {
+                    isOpen: true,
+                    title,
+                    message,
+                    canCloseManually
+                }
+            }
+        })
+    }
+
+    showWait(message: string, title?: string, canCloseManually?: boolean) {
+        title = title ? title : 'Please wait...';
+        canCloseManually = canCloseManually ? canCloseManually : false;
+        this.store.dispatch({
+            type: PackageStoreType.CORE_SET_WAIT,
+            payload: {
+                value: {
+                    isOpen: true,
+                    title,
+                    message,
+                    canCloseManually
+                }
+            }
+        })
+    }
+
+    showError(message: string, title?: string, canCloseManually?: boolean) {
+        title = title ? title : 'Error';
+        canCloseManually = canCloseManually ? canCloseManually : false;
+        this.store.dispatch({
+            type: PackageStoreType.CORE_SET_ERROR,
+            payload: {
+                value: {
+                    isOpen: true,
+                    title,
+                    message,
+                    canCloseManually
+                }
+            }
+        })
+    }
+
+    clearAlert() {
+        this.store.dispatch({
+            type: PackageStoreType.CORE_CLEAR_ALERT
+        })
+    }
+
     getModuleByType<ModuleType = any>(type: string): ModuleType {
         Object.keys(this.modules).forEach((id) => {
             if ((this.modules as any)[id].type === type) {
@@ -374,29 +490,26 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
     initialize(mode: 'Browser' | 'Server', done: (err: Error, options: ArkPackageOption<ModuleType, PackageStateType<ModuleType>>) => void, connect?: any) {
         this.mode = mode;
 
+        this.setupStore(true);
+
         // Attach redux connector
         this._reduxConnector = connect;
 
         this._initializeModules();
         this.Router = (props) => {
-            console.log(props);
             let RouterComponent: any = mode === 'Browser' ? BrowserRouter : StaticRouter
         
-            const getThemeClass = () => {
-                const state = this.store.getState();
-                let themeId: string = 'default';
-                let themeType: string = 'light';
-                if (state && state.__CORE_PACKAGE) {
-                    themeId = state.__CORE_PACKAGE.currentThemeId;
-                    themeType = state.__CORE_PACKAGE.currentThemeType;
-                }
-
-                return `${themeId} ${themeType}`;
+            const state = this.store.getState();
+            let themeId: string = 'default';
+            let themeType: string = 'light';
+            if (state && state.__CORE_PACKAGE) {
+                themeId = state.__CORE_PACKAGE.currentThemeId;
+                themeType = state.__CORE_PACKAGE.currentThemeType;
             }
 
             return (
                 <RouterComponent location={props.location}>
-                    <div className={`${getThemeClass()} h-100`}>
+                    <div className={`${themeId} ${themeType} h-100`}>
                         <Switch>
                             {
                                 this.routeConfig.map((route: PackageRouteConfig, index: number) => {
@@ -405,6 +518,36 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
                                 })
                             }
                         </Switch>
+                        {
+                            state && state.__CORE_PACKAGE ? (
+                                <>
+                                    <AlertModal
+                                        isOpen={state.__CORE_PACKAGE.messageAlert ? state.__CORE_PACKAGE.messageAlert.isOpen : false}
+                                        title={state.__CORE_PACKAGE.messageAlert ? state.__CORE_PACKAGE.messageAlert.title : ''}
+                                        message={state.__CORE_PACKAGE.messageAlert ? state.__CORE_PACKAGE.messageAlert.message : ''}
+                                        canCloseManually={state.__CORE_PACKAGE.messageAlert ? state.__CORE_PACKAGE.messageAlert.canCloseManually : false}
+                                        toggle={() => this.clearAlert()}
+                                        mode='message'
+                                    />
+                                    <AlertModal
+                                        isOpen={state.__CORE_PACKAGE.waitAlert ? state.__CORE_PACKAGE.waitAlert.isOpen : false}
+                                        title={state.__CORE_PACKAGE.waitAlert ? state.__CORE_PACKAGE.waitAlert.title : ''}
+                                        message={state.__CORE_PACKAGE.waitAlert ? state.__CORE_PACKAGE.waitAlert.message : ''}
+                                        canCloseManually={state.__CORE_PACKAGE.waitAlert ? state.__CORE_PACKAGE.waitAlert.canCloseManually : false}
+                                        toggle={() => this.clearAlert()}
+                                        mode='wait'
+                                    />
+                                    <AlertModal
+                                        isOpen={state.__CORE_PACKAGE.errorAlert ? state.__CORE_PACKAGE.errorAlert.isOpen : false}
+                                        title={state.__CORE_PACKAGE.errorAlert ? state.__CORE_PACKAGE.errorAlert.title : ''}
+                                        message={state.__CORE_PACKAGE.errorAlert ? state.__CORE_PACKAGE.errorAlert.message : ''}
+                                        canCloseManually={state.__CORE_PACKAGE.errorAlert ? state.__CORE_PACKAGE.errorAlert.canCloseManually : false}
+                                        toggle={() => this.clearAlert()}
+                                        mode='error'
+                                    />
+                                </>
+                            ) : null
+                        }
                     </div>
                 </RouterComponent>
             )
