@@ -7,6 +7,7 @@ import { IArkPackage, PackageRouteConfig, ArkPackageOption, ConditionalRouteProp
 import queryString from 'query-string';
 import { loadTheme, removeThemeLink } from './browser';
 import { AlertModal } from './components';
+import { ToastProvider, ToastModule, CORE_TOAST_PACKAGE_ID, CORE_TOAST_PACKAGE_ID_TYPE, ToastStateType } from './toast';
 
 type CORE_PACKAGE_ID_TYPE = '__CORE_PACKAGE';
 export const CORE_PACKAGE_ID: CORE_PACKAGE_ID_TYPE = '__CORE_PACKAGE';
@@ -175,10 +176,11 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
     mode: 'Browser' | 'Server' = null;
     modules: ModuleType = {} as any
     routeConfig: PackageRouteConfig[] = [];
-    store: Store<Record<CORE_PACKAGE_ID_TYPE, PackageGlobalState> & PackageStateType<ModuleType>> = null;
+    store: Store<Record<CORE_TOAST_PACKAGE_ID_TYPE, ToastStateType> & Record<CORE_PACKAGE_ID_TYPE, PackageGlobalState> & PackageStateType<ModuleType>> = null;
     configOpts: ConfigEnvironment<ConfigType & BaseConfigType<ServiceProviderType>> = { 'default': {} as any };
     configMode: string = 'default';
     serviceProviderModuleMap: ModuleServiceProviderMap<ModuleType> = {} as any;
+    toast: ToastModule = new ToastModule(this as any);
     themes: ThemePack[] = [
         {
             id: 'default',
@@ -208,6 +210,7 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
         // Register views
         _module.id = id;
         _module.package = this as any;
+        _module.toast = this.toast;
         _module.normalizeActionTypes();
         _module.attachContextToComponents(_module.components);
         _module.attachContextToComponents(_module.views);
@@ -372,7 +375,8 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
 
         // Aggregate reducers from all modules
         const reducerMap: any = {
-            [CORE_PACKAGE_ID]: createPackageReducer()
+            [CORE_PACKAGE_ID]: createPackageReducer(),
+            [CORE_TOAST_PACKAGE_ID]: this.toast.getReducer()
         };
         Object.keys(this.modules).forEach((id) => {
             const _reducer: any = (this.modules as any)[id].getReducer();
@@ -495,6 +499,8 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
         // Attach redux connector
         this._reduxConnector = connect;
 
+        let ConnectedToastProvider: any = ToastProvider;
+
         this._initializeModules();
         this.Router = (props) => {
             let RouterComponent: any = mode === 'Browser' ? BrowserRouter : StaticRouter
@@ -510,6 +516,11 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
             return (
                 <RouterComponent location={props.location}>
                     <div className={`${themeId} ${themeType} h-100`}>
+                        {
+                            state && state.__CORE_PACKAGE ? (
+                                <ConnectedToastProvider />
+                            ) : null
+                        }
                         <Switch>
                             {
                                 this.routeConfig.map((route: PackageRouteConfig, index: number) => {
@@ -555,7 +566,8 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
 
         // Connect component if redux connector is available
         if (this._reduxConnector) {
-            this.Router = this._reduxConnector((state: any) => ({ reduxState: state }))(this.Router);
+            this.Router = this._reduxConnector((state: any) => ({ reduxState: state.__CORE_PACKAGE }))(this.Router);
+            ConnectedToastProvider = this._reduxConnector((state: any) => ({ context: state.__CORE_TOAST_PACKAGE }))(ConnectedToastProvider);
         }
 
         done(null, this as any);

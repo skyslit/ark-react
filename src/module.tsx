@@ -3,6 +3,7 @@ import { IArkModule, ComponentMap, ActionTypes, PackageRouteConfig } from "./typ
 import { ArkPackage, PackageStoreType, CORE_PACKAGE_ID } from "./package"
 import { Reducer, AnyAction } from "redux";
 import Axios, { AxiosInstance } from 'axios';
+import { ToastModule } from './toast';
 
 type ProviderMap<T> = Record<Extract<T, string>, AxiosInstance>;
 
@@ -11,6 +12,7 @@ export class ArkModule<StateType = any, Providers = any> implements IArkModule<S
     id: string = null;
 
     package: ArkPackage = null;
+    toast: ToastModule = null;
     views: ComponentMap = {};
     components: ComponentMap = {};
     controller: any;
