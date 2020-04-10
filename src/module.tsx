@@ -119,16 +119,16 @@ export class ArkModule<StateType = any, Providers = any> implements IArkModule<S
         })
     }
 
-    showMessage(message: string, title?: string) {
-        this.package.showMessage(message, title);
+    showMessage(message: string, title?: string, canCloseManually?: boolean) {
+        this.package.showMessage(message, title, canCloseManually);
     }
 
-    showWait(message: string, title?: string) {
-        this.package.showWait(message, title);
+    showWait(message: string, title?: string, canCloseManually?: boolean) {
+        this.package.showWait(message, title, canCloseManually);
     }
 
-    showError(message: string, title?: string) {
-        this.package.showError(message, title);
+    showError(message: string, title?: string, canCloseManually?: boolean) {
+        this.package.showError(message, title, canCloseManually);
     }
 
     clearAlert() {
