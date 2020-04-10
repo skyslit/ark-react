@@ -1,6 +1,8 @@
 import React from 'react';
 import { createStore, compose, applyMiddleware, combineReducers, Store, AnyAction, Reducer } from "redux";
 import { Switch, Route, BrowserRouter, StaticRouter, Redirect, RouteComponentProps, RouteProps } from 'react-router-dom';
+import { i18n, InitOptions, ThirdPartyModule } from 'i18next';
+import { I18nextProviderProps } from 'react-i18next';
 import Axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import { ArkModule } from './module';
 import { IArkPackage, PackageRouteConfig, ArkPackageOption, ConditionalRouteProps } from './types';
@@ -189,12 +191,42 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
         }
     ];
 
+    private i18n: i18n;
+    private i18nInitOptions: InitOptions;
+    private i18nReactInitializer: ThirdPartyModule;
+    private I18nextProvider: React.ComponentType<I18nextProviderProps>;
     private packageConfiguration: Partial<PackageConfiguration> = {} as any;
     private _serviceProviders: ServiceProvider<ServiceProviderType> = {} as any;
     private _serviceProviderConfigurations: ServiceProviderConfiguration<ServiceProviderType> = {} as any;
     private _reduxConnector: any = null;
 
     Router: React.FunctionComponent<{ location?: string }>
+
+    usei18next(i18n: i18n, provider: React.ComponentType<I18nextProviderProps>, initializer: ThirdPartyModule, options?: InitOptions): this {
+        options = Object.assign({
+            resources: {
+                en: {
+                    translation: {
+                        "Translation Test": "Translation Test [DONE]"
+                    }
+                }
+            },
+            lng: "en",
+            fallbackLng: "en",
+
+            keySeparator: false,
+
+            interpolation: {
+                escapeValue: false
+            }
+        }, options || {});
+
+        this.i18n = i18n;
+        this.i18nReactInitializer = initializer;
+        this.i18nInitOptions = options;
+        this.I18nextProvider = provider;
+        return this;
+    }
 
     configure(opts: Partial<PackageConfiguration>) {
         this.packageConfiguration = opts;
@@ -491,20 +523,16 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
         })
     }
 
-    initialize(mode: 'Browser' | 'Server', done: (err: Error, options: ArkPackageOption<ModuleType, PackageStateType<ModuleType>>) => void, connect?: any) {
+    private _initializeApp(mode: 'Browser' | 'Server', done: (err: Error, options: ArkPackageOption<ModuleType, PackageStateType<ModuleType>>) => void, connect?: any) {
         this.mode = mode;
-
         this.setupStore(true);
-
         // Attach redux connector
         this._reduxConnector = connect;
-
         let ConnectedToastProvider: any = ToastProvider;
-
         this._initializeModules();
         this.Router = (props) => {
             let RouterComponent: any = mode === 'Browser' ? BrowserRouter : StaticRouter
-        
+
             const state = this.store.getState();
             let themeId: string = 'default';
             let themeType: string = 'light';
@@ -514,53 +542,55 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
             }
 
             return (
-                <RouterComponent location={props.location}>
-                    <div className={`${themeId} ${themeType} h-100`}>
-                        {
-                            state && state.__CORE_PACKAGE ? (
-                                <ConnectedToastProvider />
-                            ) : null
-                        }
-                        <Switch>
+                <this.I18nextProvider i18n={this.i18n}>
+                    <RouterComponent location={props.location}>
+                        <div className={`${themeId} ${themeType} h-100`}>
                             {
-                                this.routeConfig.map((route: PackageRouteConfig, index: number) => {
-                                    const _Route = route.Router || Route;
-                                    return <_Route key={index} {...route} />
-                                })
+                                state && state.__CORE_PACKAGE ? (
+                                    <ConnectedToastProvider />
+                                ) : null
                             }
-                        </Switch>
-                        {
-                            state && state.__CORE_PACKAGE ? (
-                                <>
-                                    <AlertModal
-                                        isOpen={state.__CORE_PACKAGE.messageAlert ? state.__CORE_PACKAGE.messageAlert.isOpen : false}
-                                        title={state.__CORE_PACKAGE.messageAlert ? state.__CORE_PACKAGE.messageAlert.title : ''}
-                                        message={state.__CORE_PACKAGE.messageAlert ? state.__CORE_PACKAGE.messageAlert.message : ''}
-                                        canCloseManually={state.__CORE_PACKAGE.messageAlert ? state.__CORE_PACKAGE.messageAlert.canCloseManually : false}
-                                        toggle={() => this.clearAlert()}
-                                        mode='message'
-                                    />
-                                    <AlertModal
-                                        isOpen={state.__CORE_PACKAGE.waitAlert ? state.__CORE_PACKAGE.waitAlert.isOpen : false}
-                                        title={state.__CORE_PACKAGE.waitAlert ? state.__CORE_PACKAGE.waitAlert.title : ''}
-                                        message={state.__CORE_PACKAGE.waitAlert ? state.__CORE_PACKAGE.waitAlert.message : ''}
-                                        canCloseManually={state.__CORE_PACKAGE.waitAlert ? state.__CORE_PACKAGE.waitAlert.canCloseManually : false}
-                                        toggle={() => this.clearAlert()}
-                                        mode='wait'
-                                    />
-                                    <AlertModal
-                                        isOpen={state.__CORE_PACKAGE.errorAlert ? state.__CORE_PACKAGE.errorAlert.isOpen : false}
-                                        title={state.__CORE_PACKAGE.errorAlert ? state.__CORE_PACKAGE.errorAlert.title : ''}
-                                        message={state.__CORE_PACKAGE.errorAlert ? state.__CORE_PACKAGE.errorAlert.message : ''}
-                                        canCloseManually={state.__CORE_PACKAGE.errorAlert ? state.__CORE_PACKAGE.errorAlert.canCloseManually : false}
-                                        toggle={() => this.clearAlert()}
-                                        mode='error'
-                                    />
-                                </>
-                            ) : null
-                        }
-                    </div>
-                </RouterComponent>
+                            <Switch>
+                                {
+                                    this.routeConfig.map((route: PackageRouteConfig, index: number) => {
+                                        const _Route = route.Router || Route;
+                                        return <_Route key={index} {...route} />
+                                    })
+                                }
+                            </Switch>
+                            {
+                                state && state.__CORE_PACKAGE ? (
+                                    <>
+                                        <AlertModal
+                                            isOpen={state.__CORE_PACKAGE.messageAlert ? state.__CORE_PACKAGE.messageAlert.isOpen : false}
+                                            title={state.__CORE_PACKAGE.messageAlert ? state.__CORE_PACKAGE.messageAlert.title : ''}
+                                            message={state.__CORE_PACKAGE.messageAlert ? state.__CORE_PACKAGE.messageAlert.message : ''}
+                                            canCloseManually={state.__CORE_PACKAGE.messageAlert ? state.__CORE_PACKAGE.messageAlert.canCloseManually : false}
+                                            toggle={() => this.clearAlert()}
+                                            mode='message'
+                                        />
+                                        <AlertModal
+                                            isOpen={state.__CORE_PACKAGE.waitAlert ? state.__CORE_PACKAGE.waitAlert.isOpen : false}
+                                            title={state.__CORE_PACKAGE.waitAlert ? state.__CORE_PACKAGE.waitAlert.title : ''}
+                                            message={state.__CORE_PACKAGE.waitAlert ? state.__CORE_PACKAGE.waitAlert.message : ''}
+                                            canCloseManually={state.__CORE_PACKAGE.waitAlert ? state.__CORE_PACKAGE.waitAlert.canCloseManually : false}
+                                            toggle={() => this.clearAlert()}
+                                            mode='wait'
+                                        />
+                                        <AlertModal
+                                            isOpen={state.__CORE_PACKAGE.errorAlert ? state.__CORE_PACKAGE.errorAlert.isOpen : false}
+                                            title={state.__CORE_PACKAGE.errorAlert ? state.__CORE_PACKAGE.errorAlert.title : ''}
+                                            message={state.__CORE_PACKAGE.errorAlert ? state.__CORE_PACKAGE.errorAlert.message : ''}
+                                            canCloseManually={state.__CORE_PACKAGE.errorAlert ? state.__CORE_PACKAGE.errorAlert.canCloseManually : false}
+                                            toggle={() => this.clearAlert()}
+                                            mode='error'
+                                        />
+                                    </>
+                                ) : null
+                            }
+                        </div>
+                    </RouterComponent>
+                </this.I18nextProvider>
             )
         }
 
@@ -571,6 +601,18 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
         }
 
         done(null, this as any);
+    }
+
+    initialize(mode: 'Browser' | 'Server', done: (err: Error, options: ArkPackageOption<ModuleType, PackageStateType<ModuleType>>) => void, connect?: any) {
+        if (!this.i18n) throw new Error('Looks like you missed out to connect i18next');
+        this.i18n
+        .use(this.i18nReactInitializer)
+        .init(this.i18nInitOptions, (err, t) => {
+            if (err) {
+                throw err;
+            }
+            this._initializeApp(mode, done, connect);
+        })
     }
 }
 

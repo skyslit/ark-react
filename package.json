@@ -1,6 +1,6 @@
 {
   "name": "@skyslit/ark-react",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "A React Framework for building modular business application",
   "main": "./build/index.js",
   "scripts": {
@@ -20,7 +20,11 @@
     "redux": "^4.0.5",
     "react-redux": "^7.2.0",
     "reactstrap": "^8.4.1",
-    "axios": "^0.19.2"
+    "axios": "^0.19.2",
+    "i18next": "^19.4.0",
+    "react-i18next": "^11.3.4",
+    "@fortawesome/fontawesome-free": "^5.1.0-9",
+    "bootstrap": "^4.4.1"
   },
   "devDependencies": {
     "@babel/core": "^7.9.0",
@@ -34,10 +38,12 @@
     "@types/reactstrap": "^8.4.2",
     "axios": "^0.19.2",
     "babel-loader": "^8.1.0",
+    "i18next": "^19.4.0",
     "install": "^0.13.0",
     "npm": "^6.14.3",
     "react": "^16.13.1",
     "react-dom": "^16.13.1",
+    "react-i18next": "^11.3.4",
     "react-redux": "^7.2.0",
     "react-router-dom": "^5.1.2",
     "reactstrap": "^8.4.1",
