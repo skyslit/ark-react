@@ -1,6 +1,6 @@
 import React from 'react';
 import { createStore, compose, applyMiddleware, combineReducers, Store, AnyAction, Reducer } from "redux";
-import { Switch, Route, BrowserRouter, StaticRouter, Redirect, RouteComponentProps, RouteProps } from 'react-router-dom';
+import { RouteProps, Route, Redirect } from 'react-router-dom';
 import { i18n, InitOptions, ThirdPartyModule } from 'i18next';
 import { I18nextProviderProps } from 'react-i18next';
 import Axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
@@ -201,6 +201,16 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
     private _reduxConnector: any = null;
 
     Router: React.FunctionComponent<{ location?: string }>
+    RouterProvider: any = null;
+    RouterSwitch: any = null;
+    RouterRoute: any = null
+
+    useRouter(_provider: any, _switch: any, _route: any): this {
+        this.RouterProvider = _provider;
+        this.RouterSwitch = _switch;
+        this.RouterRoute = _route;
+        return this;
+    }
 
     usei18next(i18n: i18n, provider: React.ComponentType<I18nextProviderProps>, initializer: ThirdPartyModule, options?: InitOptions): this {
         options = Object.assign({
@@ -524,6 +534,10 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
     }
 
     private _initializeApp(mode: 'Browser' | 'Server', done: (err: Error, options: ArkPackageOption<ModuleType, PackageStateType<ModuleType>>) => void, connect?: any) {
+        if (!this.RouterProvider) {
+            throw new Error('Router not initialized')
+        }
+        
         this.mode = mode;
         this.setupStore(true);
         // Attach redux connector
@@ -531,7 +545,7 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
         let ConnectedToastProvider: any = ToastProvider;
         this._initializeModules();
         this.Router = (props) => {
-            let RouterComponent: any = mode === 'Browser' ? BrowserRouter : StaticRouter
+            // this.RouterComponent = mode === 'Browser' ? BrowserRouter : StaticRouter
 
             const state = this.store.getState();
             let themeId: string = 'default';
@@ -540,24 +554,24 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
                 themeId = state.__CORE_PACKAGE.currentThemeId;
                 themeType = state.__CORE_PACKAGE.currentThemeType;
             }
-
+            
             return (
                 <this.I18nextProvider i18n={this.i18n}>
-                    <RouterComponent location={props.location}>
+                    <this.RouterProvider location={props.location}>
                         <div className={`${themeId} ${themeType} h-100`}>
                             {
                                 state && state.__CORE_PACKAGE ? (
                                     <ConnectedToastProvider />
                                 ) : null
                             }
-                            <Switch>
+                            <this.RouterSwitch>
                                 {
                                     this.routeConfig.map((route: PackageRouteConfig, index: number) => {
-                                        const _Route = route.Router || Route;
+                                        const _Route = route.Router || this.RouterRoute;
                                         return <_Route key={index} {...route} />
                                     })
                                 }
-                            </Switch>
+                            </this.RouterSwitch>
                             {
                                 state && state.__CORE_PACKAGE ? (
                                     <>
@@ -589,7 +603,7 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
                                 ) : null
                             }
                         </div>
-                    </RouterComponent>
+                    </this.RouterProvider>
                 </this.I18nextProvider>
             )
         }
