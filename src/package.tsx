@@ -1,6 +1,6 @@
 import React from 'react';
 import { createStore, compose, applyMiddleware, combineReducers, Store, AnyAction, Reducer } from "redux";
-import { RouteProps, Route, Redirect } from 'react-router-dom';
+import { RouteProps, Route, Redirect, Router } from 'react-router-dom';
 import { i18n, InitOptions, ThirdPartyModule } from 'i18next';
 import { I18nextProviderProps } from 'react-i18next';
 import Axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
@@ -173,6 +173,10 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
         }
 
         return ArkPackage.instance as ArkPackage<ModuleType, ConfigType, ServiceProviderType>;
+    }
+
+    static getRouter(): Route {
+        return (ArkPackage.instance as ArkPackage).RouterRoute;
     }
 
     mode: 'Browser' | 'Server' = null;
@@ -508,7 +512,7 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
                 }
             }
         } else {
-            console.warn('Theme setup skipped in server');
+            console.log('Theme setup skipped in server');
         }
     }
 
@@ -545,8 +549,6 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
         let ConnectedToastProvider: any = ToastProvider;
         this._initializeModules();
         this.Router = (props) => {
-            // this.RouterComponent = mode === 'Browser' ? BrowserRouter : StaticRouter
-
             const state = this.store.getState();
             let themeId: string = 'default';
             let themeType: string = 'light';
