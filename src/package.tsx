@@ -1,6 +1,6 @@
 import React from 'react';
 import { createStore, compose, applyMiddleware, combineReducers, Store, AnyAction, Reducer } from "redux";
-import { RouteProps, Route, Redirect, BrowserRouter, StaticRouter, Switch } from 'react-router-dom';
+import { RouteProps, Route, Redirect } from 'react-router-dom';
 import { i18n, InitOptions, ThirdPartyModule } from 'i18next';
 import { I18nextProviderProps } from 'react-i18next';
 import Axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
@@ -175,6 +175,16 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
         return ArkPackage.instance as ArkPackage<ModuleType, ConfigType, ServiceProviderType>;
     }
 
+    static getRouter(): { Route: Route, Redirect: Redirect } {
+        if (!ArkPackage.instance) {
+            throw new Error('ArkPackage has not been initialized');
+        }
+        return {
+            Route: (ArkPackage.instance as ArkPackage).RouterRoute,
+            Redirect: (ArkPackage.instance as ArkPackage).RouterRedirect
+        }
+    }
+
     mode: 'Browser' | 'Server' = null;
     modules: ModuleType = {} as any
     routeConfig: PackageRouteConfig[] = [];
@@ -201,8 +211,16 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
     private _reduxConnector: any = null;
 
     Router: React.FunctionComponent<{ location?: string }>
+    RouterProvider: any = null;
+    RouterSwitch: any = null;
+    RouterRoute: any = null;
+    RouterRedirect: any = null;
 
-    useRouter(_provider: any, _switch: any, _route: any): this {
+    useRouter(_provider: any, _switch: any, _route: any, _redirect: any): this {
+        this.RouterProvider = _provider;
+        this.RouterSwitch = _switch;
+        this.RouterRoute = _route;
+        this.RouterRedirect = _redirect;
         return this;
     }
 
@@ -528,7 +546,9 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
     }
 
     private _initializeApp(mode: 'Browser' | 'Server', done: (err: Error, options: ArkPackageOption<ModuleType, PackageStateType<ModuleType>>) => void, connect?: any) {
-        const RouterProvider: any = mode === 'Browser' ? BrowserRouter : StaticRouter;
+        if (!this.RouterProvider) {
+            throw new Error('Router not initialized')
+        }
         
         this.mode = mode;
         this.setupStore(true);
@@ -547,21 +567,21 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
             
             return (
                 <this.I18nextProvider i18n={this.i18n}>
-                    <RouterProvider location={props.location}>
+                    <this.RouterProvider location={props.location}>
                         <div className={`${themeId} ${themeType} h-100`}>
                             {
                                 state && state.__CORE_PACKAGE ? (
                                     <ConnectedToastProvider />
                                 ) : null
                             }
-                            <Switch>
+                            <this.RouterSwitch>
                                 {
                                     this.routeConfig.map((route: PackageRouteConfig, index: number) => {
-                                        const _Route = route.Router || Route;
+                                        const _Route = route.Router || this.RouterRoute;
                                         return <_Route key={index} {...route} />
                                     })
                                 }
-                            </Switch>
+                            </this.RouterSwitch>
                             {
                                 state && state.__CORE_PACKAGE ? (
                                     <>
@@ -593,7 +613,7 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
                                 ) : null
                             }
                         </div>
-                    </RouterProvider>
+                    </this.RouterProvider>
                 </this.I18nextProvider>
             )
         }
@@ -621,7 +641,10 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
 }
 
 function ConditionalRoute(outterProps: RouteProps & ConditionalRouteProps) {
-    return <Route {...(outterProps as any)} children={(childProps) => {
+    const RouteProxy = ArkPackage.getRouter();
+    const _Route: any = RouteProxy.Route;
+    const _Redirect: any = RouteProxy.Redirect;
+    return <_Route {...(outterProps as any)} children={(childProps: any) => {
         let redirectUrl = outterProps.onFailureRedirectPath;
 
         if (outterProps.predicate) {
@@ -642,7 +665,7 @@ function ConditionalRoute(outterProps: RouteProps & ConditionalRouteProps) {
             })
         }
 
-        return <Redirect to={{
+        return <_Redirect to={{
             pathname: redirectUrl,
             state: { from: outterProps.location }
         }} />
