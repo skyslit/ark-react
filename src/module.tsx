@@ -19,6 +19,7 @@ export class ArkModule<StateType = any, Providers = any> implements IArkModule<S
     services: any;
     state: StateType = {} as any;
     actionTypes: ActionTypes = {} as any;
+    initializeServerContext: boolean = false;
 
     private connect: any;
     

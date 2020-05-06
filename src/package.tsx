@@ -10,11 +10,13 @@ import queryString from 'query-string';
 import { loadTheme, removeThemeLink } from './browser';
 import { AlertModal } from './components';
 import { ToastProvider, ToastModule, CORE_TOAST_PACKAGE_ID, CORE_TOAST_PACKAGE_ID_TYPE, ToastStateType } from './toast';
+import { stat } from 'fs';
 
 type CORE_PACKAGE_ID_TYPE = '__CORE_PACKAGE';
 export const CORE_PACKAGE_ID: CORE_PACKAGE_ID_TYPE = '__CORE_PACKAGE';
 
 export type PackageGlobalState = {
+    hasInitialized: boolean
     isAuthenticated: boolean
     token: string
     userInfo: any
@@ -44,6 +46,7 @@ export type PackageGlobalState = {
 }
 
 export const PackageStoreType = {
+    CORE_INITIALIZE: `${CORE_PACKAGE_ID}_INITIALIZE`,
     CORE_SET_CURRENT_USER: `${CORE_PACKAGE_ID}_SET_CURRENT_USER`,
     CORE_SET_THEME: `${CORE_PACKAGE_ID}_SET_THEME`,
     CORE_SET_ERROR: `${CORE_PACKAGE_ID}_SET_ERROR`,
@@ -53,6 +56,7 @@ export const PackageStoreType = {
 }
 
 const initialState: PackageGlobalState = {
+    hasInitialized: false,
     isAuthenticated: false,
     token: null,
     userInfo: null,
@@ -74,6 +78,10 @@ const initialState: PackageGlobalState = {
 
 const createPackageReducer = (): Reducer => (state: Partial<PackageGlobalState> = initialState, action: AnyAction) => {
     switch (action.type) {
+        case PackageStoreType.CORE_INITIALIZE: {
+            const { payload } = action.value;
+            return Object.assign({}, state, payload, { hasInitialized: true });
+        }
         case PackageStoreType.CORE_SET_CURRENT_USER: {
             const { isAuthenticated, userInfo, token } = action.payload;
             return Object.assign({}, state, {
@@ -164,7 +172,7 @@ export type ThemePack = {
     type: 'light' | 'dark'
 }
 
-export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServiceProviderType = ServiceProviderBase> implements IArkPackage<ModuleType> {
+export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServiceProviderType = ServiceProviderBase | string> implements IArkPackage<ModuleType> {
     static instance: any;
     static getInstance<ModuleType = any, ConfigType = BaseConfigType, ServiceProviderType = ServiceProviderBase>(): ArkPackage<ModuleType, ConfigType, ServiceProviderType> {
         if (!ArkPackage.instance) {
@@ -252,6 +260,13 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
 
     configure(opts: Partial<PackageConfiguration>) {
         this.packageConfiguration = opts;
+    }
+
+    private shouldInitializeServerContext(): boolean {
+        return Object.keys(this.modules).some((key) => {
+            // @ts-ignore
+            return (this.modules[key] as ArkModule).initializeServerContext;
+        })
     }
 
     private getPackageConfiguration(): Readonly<PackageConfiguration> {
@@ -481,7 +496,9 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
             return this.getConfig()[provider] as AxiosRequestConfig;
         }
 
-        return {}
+        return {
+            withCredentials: true
+        }
     }
 
     _resolveServiceProvider(moduleId: string, providerId: string) {
@@ -498,7 +515,7 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
         return this.getServiceProvider('Main');
     }
 
-    getServiceProvider(provider: ServiceProviderType): AxiosInstance {
+    getServiceProvider(provider: ServiceProviderType | string): AxiosInstance {
         // @ts-ignore
         if (this._serviceProviders[provider]) {
             // @ts-ignore
@@ -556,67 +573,112 @@ export class ArkPackage<ModuleType = any, ConfigType = BaseConfigType, ServicePr
         this._reduxConnector = connect;
         let ConnectedToastProvider: any = ToastProvider;
         this._initializeModules();
-        this.Router = (props) => {
-            const state = this.store.getState();
-            let themeId: string = 'default';
-            let themeType: string = 'light';
-            if (state && state.__CORE_PACKAGE) {
-                themeId = state.__CORE_PACKAGE.currentThemeId;
-                themeType = state.__CORE_PACKAGE.currentThemeType;
+
+        const self = this;
+        this.Router = (
+            class Main extends React.Component<any, any> {
+
+                fetchContext() {
+                    self.getServiceProvider('Main').get('/__context')
+                    .then((response) => {
+                        self.store.dispatch({
+                            type: PackageStoreType.CORE_INITIALIZE,
+                            value: {
+                                payload: response.data
+                            }
+                        })
+                    }, (err) => {
+                        console.error(err);
+                        // setTimeout(() => {
+                        //     this.fetchContext();
+                        // }, 100);
+                    })
+                }
+
+                componentDidMount() {
+                    if (self.shouldInitializeServerContext()) {
+                        const reduxState = this.props.reduxState;
+                        if (reduxState.hasInitialized !== true) {
+                            this.fetchContext();
+                        }
+                    } else {
+                        self.store.dispatch({
+                            type: PackageStoreType.CORE_INITIALIZE,
+                            value: {
+                                payload: {}
+                            }
+                        })
+                    }
+                }
+
+                render() {
+                    const reduxState = this.props.reduxState;
+
+                    let themeId: string = 'default';
+                    let themeType: string = 'light';
+                    if (reduxState) {
+                        themeId = reduxState.currentThemeId;
+                        themeType = reduxState.currentThemeType;
+                    }
+
+                    if (!reduxState.hasInitialized) {
+                        return <div>Loading...</div>
+                    }
+
+                    return (
+                        <self.I18nextProvider i18n={self.i18n}>
+                            <self.RouterProvider location={this.props.location}>
+                                <div className={`${themeId} ${themeType} h-100`}>
+                                    {
+                                        reduxState ? (
+                                            <ConnectedToastProvider />
+                                        ) : null
+                                    }
+                                    <self.RouterSwitch>
+                                        {
+                                            self.routeConfig.map((route: PackageRouteConfig, index: number) => {
+                                                const _Route = route.Router || self.RouterRoute;
+                                                return <_Route key={index} {...route} />
+                                            })
+                                        }
+                                    </self.RouterSwitch>
+                                    {
+                                        reduxState ? (
+                                            <>
+                                                <AlertModal
+                                                    isOpen={reduxState.messageAlert ? reduxState.messageAlert.isOpen : false}
+                                                    title={reduxState.messageAlert ? reduxState.messageAlert.title : ''}
+                                                    message={reduxState.messageAlert ? reduxState.messageAlert.message : ''}
+                                                    canCloseManually={reduxState.messageAlert ? reduxState.messageAlert.canCloseManually : false}
+                                                    toggle={() => self.clearAlert()}
+                                                    mode='message'
+                                                />
+                                                <AlertModal
+                                                    isOpen={reduxState.waitAlert ? reduxState.waitAlert.isOpen : false}
+                                                    title={reduxState.waitAlert ? reduxState.waitAlert.title : ''}
+                                                    message={reduxState.waitAlert ? reduxState.waitAlert.message : ''}
+                                                    canCloseManually={reduxState.waitAlert ? reduxState.waitAlert.canCloseManually : false}
+                                                    toggle={() => self.clearAlert()}
+                                                    mode='wait'
+                                                />
+                                                <AlertModal
+                                                    isOpen={reduxState.errorAlert ? reduxState.errorAlert.isOpen : false}
+                                                    title={reduxState.errorAlert ? reduxState.errorAlert.title : ''}
+                                                    message={reduxState.errorAlert ? reduxState.errorAlert.message : ''}
+                                                    canCloseManually={reduxState.errorAlert ? reduxState.errorAlert.canCloseManually : false}
+                                                    toggle={() => self.clearAlert()}
+                                                    mode='error'
+                                                />
+                                            </>
+                                        ) : null
+                                    }
+                                </div>
+                            </self.RouterProvider>
+                        </self.I18nextProvider>
+                    )
+                }
             }
-            
-            return (
-                <this.I18nextProvider i18n={this.i18n}>
-                    <this.RouterProvider location={props.location}>
-                        <div className={`${themeId} ${themeType} h-100`}>
-                            {
-                                state && state.__CORE_PACKAGE ? (
-                                    <ConnectedToastProvider />
-                                ) : null
-                            }
-                            <this.RouterSwitch>
-                                {
-                                    this.routeConfig.map((route: PackageRouteConfig, index: number) => {
-                                        const _Route = route.Router || this.RouterRoute;
-                                        return <_Route key={index} {...route} />
-                                    })
-                                }
-                            </this.RouterSwitch>
-                            {
-                                state && state.__CORE_PACKAGE ? (
-                                    <>
-                                        <AlertModal
-                                            isOpen={state.__CORE_PACKAGE.messageAlert ? state.__CORE_PACKAGE.messageAlert.isOpen : false}
-                                            title={state.__CORE_PACKAGE.messageAlert ? state.__CORE_PACKAGE.messageAlert.title : ''}
-                                            message={state.__CORE_PACKAGE.messageAlert ? state.__CORE_PACKAGE.messageAlert.message : ''}
-                                            canCloseManually={state.__CORE_PACKAGE.messageAlert ? state.__CORE_PACKAGE.messageAlert.canCloseManually : false}
-                                            toggle={() => this.clearAlert()}
-                                            mode='message'
-                                        />
-                                        <AlertModal
-                                            isOpen={state.__CORE_PACKAGE.waitAlert ? state.__CORE_PACKAGE.waitAlert.isOpen : false}
-                                            title={state.__CORE_PACKAGE.waitAlert ? state.__CORE_PACKAGE.waitAlert.title : ''}
-                                            message={state.__CORE_PACKAGE.waitAlert ? state.__CORE_PACKAGE.waitAlert.message : ''}
-                                            canCloseManually={state.__CORE_PACKAGE.waitAlert ? state.__CORE_PACKAGE.waitAlert.canCloseManually : false}
-                                            toggle={() => this.clearAlert()}
-                                            mode='wait'
-                                        />
-                                        <AlertModal
-                                            isOpen={state.__CORE_PACKAGE.errorAlert ? state.__CORE_PACKAGE.errorAlert.isOpen : false}
-                                            title={state.__CORE_PACKAGE.errorAlert ? state.__CORE_PACKAGE.errorAlert.title : ''}
-                                            message={state.__CORE_PACKAGE.errorAlert ? state.__CORE_PACKAGE.errorAlert.message : ''}
-                                            canCloseManually={state.__CORE_PACKAGE.errorAlert ? state.__CORE_PACKAGE.errorAlert.canCloseManually : false}
-                                            toggle={() => this.clearAlert()}
-                                            mode='error'
-                                        />
-                                    </>
-                                ) : null
-                            }
-                        </div>
-                    </this.RouterProvider>
-                </this.I18nextProvider>
-            )
-        }
+        ) as any;
 
         // Connect component if redux connector is available
         if (this._reduxConnector) {
@@ -674,4 +736,24 @@ function ConditionalRoute(outterProps: RouteProps & ConditionalRouteProps) {
 
 export function withCondition(options: ConditionalRouteProps) {
     return (props: RouteProps) => <ConditionalRoute {...options} {...props} />
+}
+
+export function withAuthentication(onFailureRedirectPath: string, shouldHaveAuthenticated?: boolean) {
+    shouldHaveAuthenticated = shouldHaveAuthenticated !== undefined && shouldHaveAuthenticated !== null ? shouldHaveAuthenticated : true;
+    return withCondition({
+        onFailureRedirectPath,
+        predicate: () => {
+            const instance = ArkPackage.getInstance();
+            if (!instance.store) {
+                throw new Error('Package must have initialized before calling withAuthentication');
+            }
+
+            const state = instance.store.getState();
+            if (state.__CORE_PACKAGE) {
+                return instance.store.getState().__CORE_PACKAGE.isAuthenticated === shouldHaveAuthenticated;
+            }
+
+            return false;
+        }
+    })
 }
